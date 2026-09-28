@@ -257,6 +257,7 @@ To change WDL structure, edit `workflows/daedalus_from_cellranger.wdl`, `tasks/p
 | `snap_read_config.R` | Helper used by R modules to load YAML config |
 | `snap-read-config.sh` | Bash helper for shell scripts (same config precedence as `snap_read_config.R`) |
 | `collect-snap-resource-usage.sh` | Post-run LSF resource report (requested vs actual per module) |
+| `extract-snap-resource-usage.sh` | Convenience wrapper: `--latest --json` into `out/resource_usage/` |
 | `test-downstream-layout.sh` | Sanity-check that expected WDL/inputs files exist |
 
 Root launcher (one level up): `launch-snap-downstream.sh`
@@ -279,11 +280,14 @@ Key columns: `requested_cpu`, `requested_memory_gb`, `actual_max_memory_gb`, `me
 **Run manually** (e.g. after an older run):
 
 ```bash
-# Latest Sprocket run
-bash scripts/collect-snap-resource-usage.sh --snap-root . --latest --json
+# Latest Sprocket run (writes out/resource_usage/resource_usage_<run_id>.{csv,json})
+bash scripts/extract-snap-resource-usage.sh
 
-# Specific run
-bash scripts/collect-snap-resource-usage.sh --snap-root . --run-id 2026-08-31_234355266651904
+# Copy reports elsewhere (e.g. ROI analysis input/)
+bash scripts/extract-snap-resource-usage.sh --export-dir /path/to/destination
+
+# Specific run / workflow folder
+bash scripts/collect-snap-resource-usage.sh --snap-root . --workflow daedalus_from_cellranger --run-id 2026-08-31_234355266651904 --json
 ```
 
 **Requested resources only** (pre-run estimates, not actual usage):

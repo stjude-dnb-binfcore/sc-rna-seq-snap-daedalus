@@ -131,7 +131,11 @@ set -e
 
 if [[ "${COLLECT_RESOURCES}" -eq 1 ]]; then
   echo "==> Collecting per-module resource usage (requested vs actual)"
-  bash "${RESOURCE_SCRIPT}" --snap-root "${SNAP_ROOT}" --latest --json || true
+  bash "${RESOURCE_SCRIPT}" \
+    --snap-root "${SNAP_ROOT}" \
+    --workflow "${WORKFLOW_NAME}" \
+    --latest \
+    --json || true
 fi
 
 if [[ "${RUN_EXIT}" -eq 0 ]]; then
