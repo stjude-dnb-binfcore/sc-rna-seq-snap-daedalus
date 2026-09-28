@@ -12,12 +12,12 @@ Before launching downstream:
 2. **Sample metadata** exists at `data/project_metadata/project_metadata.tsv`.
 3. Metadata `ID` values exactly match the Cell Ranger sample directory names.
 4. **Apptainer/Singularity image** is configured at `resource_profile.container_image` in `project_parameters.Config.yaml` (default: `<root_dir>/rstudio_4.4.0_seurat_4.4.0_latest.sif`).
-5. You are on a St. Jude HPC node with **Sprocket**, **R**, and **Apptainer/Singularity** available.
+5. You are on a St. Jude HPC node with **Sprocket**, **R**, and **Apptainer/Singularity** available. Please note that a version of Singularity is installed by default on all the cluster nodes at St Jude HPC. Otherwise the user needs to ensure and load Singularity module.
 
 ## Load modules
 
 ```bash
-module load sprocket R singularity
+module load sprocket R
 ```
 
 ## Quick start
