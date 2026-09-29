@@ -3,9 +3,9 @@
 # out/resource_usage/ (CSV + JSON), matching the Daedalus prototype layout.
 #
 # Usage (from project root):
-#   bash scripts/extract-snap-resource-usage.sh
-#   bash scripts/extract-snap-resource-usage.sh --run-id 2026-09-12_143900834470824
-#   bash scripts/extract-snap-resource-usage.sh --export-dir /path/to/roi/input
+#   bash scripts/extract-resource-usage.sh
+#   bash scripts/extract-resource-usage.sh --run-id 2026-09-12_143900834470824
+#   bash scripts/extract-resource-usage.sh --export-dir /path/to/roi/input
 #
 # Requires: jq, bjobs — run on a St. Jude HPC login/submit node (not from a Mac SMB mount).
 
@@ -15,7 +15,7 @@ export PATH="/usr/bin:/bin:/usr/local/bin:${PATH:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SNAP_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-COLLECT="${SCRIPT_DIR}/collect-snap-resource-usage.sh"
+COLLECT="${SCRIPT_DIR}/collect-resource-usage.sh"
 
 EXTRA=()
 HAS_SNAP_ROOT=0

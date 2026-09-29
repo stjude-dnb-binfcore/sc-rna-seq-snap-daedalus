@@ -7,7 +7,7 @@
 # Writes reports under out/resource_usage/ by default.
 #
 # Usage:
-#   collect-snap-resource-usage.sh --snap-root PATH [--workflow NAME] [--run-id ID | --latest] [--output PATH] [--json] [--export-dir PATH]
+#   collect-resource-usage.sh --snap-root PATH [--workflow NAME] [--run-id ID | --latest] [--output PATH] [--json] [--export-dir PATH]
 #
 # Workflow run directories live under out/runs/<workflow_name>/ (default workflow:
 # daedalus_from_cellranger). If --workflow is omitted, the script auto-detects a
@@ -44,7 +44,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "${SNAP_ROOT}" ]] || {
-  echo "Usage: collect-snap-resource-usage.sh --snap-root PATH [--run-id ID | --latest] [--output PATH] [--json]" >&2
+  echo "Usage: collect-resource-usage.sh --snap-root PATH [--run-id ID | --latest] [--output PATH] [--json]" >&2
   exit 1
 }
 
