@@ -11,8 +11,8 @@ required=(
   sprocket.toml
   scripts/estimate-snap-downstream-resources.R
   scripts/launch-snap-sprocket.sh
-  scripts/collect-snap-resource-usage.sh
-  scripts/extract-snap-resource-usage.sh
+  scripts/collect-resource-usage.sh
+  scripts/extract-resource-usage.sh
   workflows/daedalus_from_cellranger.wdl
   tasks/post_cellranger_optional.wdl
   tasks/post_cellranger_required.wdl
