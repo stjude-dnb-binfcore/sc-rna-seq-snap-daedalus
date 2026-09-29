@@ -233,7 +233,8 @@ workflow_toggles <- function(cfg) {
     run_cell_types = isTRUE(wp$run_cell_types %||% FALSE),
     run_clone_phylogeny = isTRUE(wp$run_clone_phylogeny %||% FALSE),
     run_de_go = isTRUE(wp$run_de_go %||% FALSE),
-    run_rshiny = isTRUE(wp$run_rshiny %||% FALSE)
+    run_rshiny = isTRUE(wp$run_rshiny %||% FALSE),
+    run_project_updates = isTRUE(wp$run_project_updates %||% FALSE)
   )
 }
 
@@ -276,7 +277,9 @@ compute_resources <- function(num_samples, estimated_cells_per_sample, total_cel
     contamination_future_globals_gib = 400L + (cell_scale - 1L) * 100L,
     cell_types_memory_gb = 64L + (cell_scale - 1L) * 16L,
     de_go_memory_gb = 32L + (cell_scale - 1L) * 8L,
-    de_go_future_globals_gib = 200L + (cell_scale - 1L) * 50L
+    de_go_future_globals_gib = 200L + (cell_scale - 1L) * 50L,
+    project_updates_cpu = 1L,
+    project_updates_memory_gb = 4L
   )
 
   for (key in grep("_memory_gb$", names(res), value = TRUE)) {
@@ -329,7 +332,8 @@ build_sprocket_inputs <- function(
     `daedalus_from_cellranger.run_cell_types` = toggles$run_cell_types,
     `daedalus_from_cellranger.run_clone_phylogeny` = toggles$run_clone_phylogeny,
     `daedalus_from_cellranger.run_de_go` = toggles$run_de_go,
-    `daedalus_from_cellranger.run_rshiny` = toggles$run_rshiny
+    `daedalus_from_cellranger.run_rshiny` = toggles$run_rshiny,
+    `daedalus_from_cellranger.run_project_updates` = toggles$run_project_updates
   )
 }
 

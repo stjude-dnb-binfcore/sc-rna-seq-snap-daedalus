@@ -112,6 +112,40 @@ task run_cell_types {
     }
 }
 
+task run_project_updates {
+    meta {
+        description: "Project report and cross-module summary module"
+    }
+
+    input {
+        String snap_root
+        String container_image
+        String notify_email
+        Int cpu = 1
+        Int memory_gb = 4
+    }
+
+    command <<<
+        set -euo pipefail
+        TASK_DIR="$(pwd)"
+        echo "Module: project_updates  LSF mail: ~{notify_email}"
+        export SNAP_CONFIG_FILE="~{snap_root}/inputs/project_parameters.generated.yaml"
+        cd "~{snap_root}/analyses/project-updates"
+        bash run-project-updates.sh
+        echo "done" > "${TASK_DIR}/project_updates.done"
+    >>>
+
+    output {
+        File done_flag = "project_updates.done"
+    }
+
+    requirements {
+        cpu: cpu
+        memory: "~{memory_gb} GB"
+        container: container_image
+    }
+}
+
 task run_rshiny {
     meta {
         description: "R Shiny app packaging module"

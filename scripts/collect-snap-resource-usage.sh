@@ -57,6 +57,7 @@ normalize_module() {
     clone_phylogeny*) echo "clone_phylogeny" ;;
     de_go*) echo "de_go" ;;
     rshiny*) echo "rshiny" ;;
+    project_updates*) echo "project_updates" ;;
     *) return 1 ;;
   esac
 }

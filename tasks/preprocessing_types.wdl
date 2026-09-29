@@ -64,4 +64,8 @@ struct DownstreamResources {
     Int rshiny_cpu
     ## The R Shiny app generation memory request in GB.
     Int rshiny_memory_gb
+    ## The number of CPU cores for project report generation.
+    Int project_updates_cpu
+    ## The project-updates memory request in GB.
+    Int project_updates_memory_gb
 }
