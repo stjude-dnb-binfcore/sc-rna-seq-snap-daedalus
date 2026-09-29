@@ -7,9 +7,11 @@
 #   bash scripts/extract-snap-resource-usage.sh --run-id 2026-09-12_143900834470824
 #   bash scripts/extract-snap-resource-usage.sh --export-dir /path/to/roi/input
 #
-# Requires: jq, bjobs (St. Jude HPC login/submit node with LSF history).
+# Requires: jq, bjobs — run on a St. Jude HPC login/submit node (not from a Mac SMB mount).
 
 set -euo pipefail
+
+export PATH="/usr/bin:/bin:/usr/local/bin:${PATH:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SNAP_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"

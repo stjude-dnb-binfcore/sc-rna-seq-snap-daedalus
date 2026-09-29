@@ -15,6 +15,9 @@
 
 set -euo pipefail
 
+# nohup/cron shells often omit /usr/bin; jq and bjobs live there on St. Jude HPC.
+export PATH="/usr/bin:/bin:/usr/local/bin:${PATH:-}"
+
 SNAP_ROOT=""
 WORKFLOW=""
 RUN_ID=""
@@ -97,8 +100,35 @@ RUNS_ROOT="$(resolve_runs_root)" || {
   exit 1
 }
 
-if ! command -v jq >/dev/null 2>&1; then
-  echo "jq is required but not found in PATH" >&2
+JQ=""
+
+resolve_jq() {
+  local path=""
+  if [[ -n "${JQ}" && -x "${JQ}" ]]; then
+    return 0
+  fi
+  if path="$(command -v jq 2>/dev/null)" && [[ -n "${path}" && -x "${path}" ]]; then
+    JQ="${path}"
+    return 0
+  fi
+  for path in /usr/bin/jq /bin/jq /usr/local/bin/jq; do
+    if [[ -x "${path}" ]]; then
+      JQ="${path}"
+      return 0
+    fi
+  done
+  if type module >/dev/null 2>&1; then
+    module load jq 2>/dev/null || true
+    if path="$(command -v jq 2>/dev/null)" && [[ -n "${path}" && -x "${path}" ]]; then
+      JQ="${path}"
+      return 0
+    fi
+  fi
+  return 1
+}
+
+if ! resolve_jq; then
+  echo "jq is required but was not found (run on St. Jude HPC: module load jq, or export PATH=/usr/bin:\$PATH)" >&2
   exit 1
 fi
 
@@ -303,9 +333,9 @@ for call_path in "${CALLS_DIR}"/*/; do
   requested_lsf_queue="${DEFAULT_LSF_QUEUE}"
 
   if [[ -f "${inputs_file}" ]]; then
-    requested_cpu="$(jq -r '.cpu // empty' "${inputs_file}")"
-    requested_memory_gb="$(jq -r '.memory_gb // empty' "${inputs_file}")"
-    requested_lsf_queue="$(jq -r '.lsf_queue // empty' "${inputs_file}")"
+    requested_cpu="$("${JQ}" -r '.cpu // empty' "${inputs_file}")"
+    requested_memory_gb="$("${JQ}" -r '.memory_gb // empty' "${inputs_file}")"
+    requested_lsf_queue="$("${JQ}" -r '.lsf_queue // empty' "${inputs_file}")"
     [[ -z "${requested_lsf_queue}" ]] && requested_lsf_queue="${DEFAULT_LSF_QUEUE}"
   fi
 
@@ -325,7 +355,7 @@ for call_path in "${CALLS_DIR}"/*/; do
   row="${RUN_ID},${module},${call_alias},${job_id},${lsf_status},${requested_cpu},${requested_memory_gb},${requested_lsf_queue},${max_mem_gb},${avg_mem_gb},${memory_utilization_pct},${lsf_mem_efficiency_pct},${cpu_time_sec},${wall_time_sec},${cpu_avg_efficiency_pct},${cpu_peak_efficiency_pct},${exit_code}"
   echo "${row}" >> "${OUTPUT}"
 
-  jq -n \
+  "${JQ}" -n \
     --arg run_id "${RUN_ID}" \
     --arg module_name "${module}" \
     --arg call_alias "${call_alias}" \
@@ -377,7 +407,7 @@ fi
 
 if [[ "${WRITE_JSON}" -eq 1 ]]; then
   if [[ -s "${tmp_rows}" ]]; then
-    jq -s \
+    "${JQ}" -s \
     --arg generated_at "$(date -Is)" \
     --arg snap_root "${SNAP_ROOT}" \
     --arg run_id "${RUN_ID}" \
