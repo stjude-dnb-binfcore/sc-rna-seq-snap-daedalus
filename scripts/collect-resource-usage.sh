@@ -7,25 +7,36 @@
 # Writes reports under out/resource_usage/ by default.
 #
 # Usage:
-#   collect-snap-resource-usage.sh --snap-root PATH [--run-id ID | --latest] [--output PATH] [--json]
+#   collect-resource-usage.sh --snap-root PATH [--workflow NAME] [--run-id ID | --latest] [--output PATH] [--json] [--export-dir PATH]
+#
+# Workflow run directories live under out/runs/<workflow_name>/ (default workflow:
+# daedalus_from_cellranger). If --workflow is omitted, the script auto-detects a
+# folder under out/runs/ that contains Sprocket call metadata.
 
 set -euo pipefail
 
+# nohup/cron shells often omit /usr/bin; jq and bjobs live there on St. Jude HPC.
+export PATH="/usr/bin:/bin:/usr/local/bin:${PATH:-}"
+
 SNAP_ROOT=""
+WORKFLOW=""
 RUN_ID=""
 USE_LATEST=0
 OUTPUT=""
 WRITE_JSON=0
+EXPORT_DIR=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --snap-root) SNAP_ROOT="$2"; shift 2 ;;
+    --workflow) WORKFLOW="$2"; shift 2 ;;
     --run-id) RUN_ID="$2"; shift 2 ;;
     --latest) USE_LATEST=1; shift ;;
     --output) OUTPUT="$2"; shift 2 ;;
     --json) WRITE_JSON=1; shift ;;
+    --export-dir) EXPORT_DIR="$2"; shift 2 ;;
     -h|--help)
-      sed -n '2,8p' "$0" | sed 's/^# \?//'
+      sed -n '2,12p' "$0" | sed 's/^# \?//'
       exit 0
       ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
@@ -33,16 +44,91 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "${SNAP_ROOT}" ]] || {
-  echo "Usage: collect-snap-resource-usage.sh --snap-root PATH [--run-id ID | --latest] [--output PATH] [--json]" >&2
+  echo "Usage: collect-resource-usage.sh --snap-root PATH [--run-id ID | --latest] [--output PATH] [--json]" >&2
   exit 1
 }
 
 SNAP_ROOT="$(cd "${SNAP_ROOT}" && pwd)"
-RUNS_ROOT="${SNAP_ROOT}/out/runs/daedalus_from_cellranger"
+RUNS_BASE="${SNAP_ROOT}/out/runs"
 RESOURCE_USAGE_DIR="${SNAP_ROOT}/out/resource_usage"
 
-if ! command -v jq >/dev/null 2>&1; then
-  echo "jq is required but not found in PATH" >&2
+default_lsf_queue() {
+  local config="${SNAP_ROOT}/inputs/sprocket.generated.toml"
+  if [[ ! -f "${config}" ]]; then
+    config="${SNAP_ROOT}/sprocket.toml"
+  fi
+  if [[ -f "${config}" ]]; then
+    grep -E '^\s*default_lsf_queue\.name\s*=' "${config}" 2>/dev/null \
+      | head -1 \
+      | sed -E 's/.*=\s*"([^"]+)".*/\1/'
+  fi
+}
+
+DEFAULT_LSF_QUEUE="$(default_lsf_queue)"
+DEFAULT_LSF_QUEUE="${DEFAULT_LSF_QUEUE:-standard}"
+
+resolve_runs_root() {
+  if [[ -n "${WORKFLOW}" ]]; then
+    echo "${RUNS_BASE}/${WORKFLOW}"
+    return 0
+  fi
+
+  local preferred=("daedalus_from_cellranger" "sc_rna_seq_snap_downstream")
+  local name candidate
+  for name in "${preferred[@]}"; do
+    candidate="${RUNS_BASE}/${name}"
+    if [[ -d "${candidate}" ]]; then
+      echo "${candidate}"
+      return 0
+    fi
+  done
+
+  local newest=""
+  newest="$(find "${RUNS_BASE}" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null \
+    | sort -nr | head -1 | awk '{print $2}')"
+  if [[ -n "${newest}" ]]; then
+    echo "${newest}"
+    return 0
+  fi
+
+  return 1
+}
+
+RUNS_ROOT="$(resolve_runs_root)" || {
+  echo "No Sprocket workflow output found under ${RUNS_BASE}" >&2
+  echo "Pass --workflow NAME if runs live under a different folder." >&2
+  exit 1
+}
+
+JQ=""
+
+resolve_jq() {
+  local path=""
+  if [[ -n "${JQ}" && -x "${JQ}" ]]; then
+    return 0
+  fi
+  if path="$(command -v jq 2>/dev/null)" && [[ -n "${path}" && -x "${path}" ]]; then
+    JQ="${path}"
+    return 0
+  fi
+  for path in /usr/bin/jq /bin/jq /usr/local/bin/jq; do
+    if [[ -x "${path}" ]]; then
+      JQ="${path}"
+      return 0
+    fi
+  done
+  if type module >/dev/null 2>&1; then
+    module load jq 2>/dev/null || true
+    if path="$(command -v jq 2>/dev/null)" && [[ -n "${path}" && -x "${path}" ]]; then
+      JQ="${path}"
+      return 0
+    fi
+  fi
+  return 1
+}
+
+if ! resolve_jq; then
+  echo "jq is required but was not found (run on St. Jude HPC: module load jq, or export PATH=/usr/bin:\$PATH)" >&2
   exit 1
 fi
 
@@ -222,7 +308,7 @@ JSON_OUTPUT="${OUTPUT%.csv}.json"
 tmp_rows="$(mktemp)"
 trap 'rm -f "${tmp_rows}"' EXIT
 
-header="run_id,module,call_alias,lsf_job_id,lsf_status,requested_cpu,requested_memory_gb,actual_max_memory_gb,actual_avg_memory_gb,memory_utilization_pct,lsf_mem_efficiency_pct,cpu_time_sec,wall_time_sec,cpu_avg_efficiency_pct,cpu_peak_efficiency_pct,lsf_exit_code"
+header="run_id,module,call_alias,lsf_job_id,lsf_status,requested_cpu,requested_memory_gb,requested_lsf_queue,actual_max_memory_gb,actual_avg_memory_gb,memory_utilization_pct,lsf_mem_efficiency_pct,cpu_time_sec,wall_time_sec,cpu_avg_efficiency_pct,cpu_peak_efficiency_pct,lsf_exit_code"
 echo "${header}" > "${OUTPUT}"
 
 module_count=0
@@ -244,15 +330,18 @@ for call_path in "${CALLS_DIR}"/*/; do
   job_id="$(tr -d '[:space:]' < "${job_id_file}")"
   requested_cpu=""
   requested_memory_gb=""
+  requested_lsf_queue="${DEFAULT_LSF_QUEUE}"
 
   if [[ -f "${inputs_file}" ]]; then
-    requested_cpu="$(jq -r '.cpu // empty' "${inputs_file}")"
-    requested_memory_gb="$(jq -r '.memory_gb // empty' "${inputs_file}")"
+    requested_cpu="$("${JQ}" -r '.cpu // empty' "${inputs_file}")"
+    requested_memory_gb="$("${JQ}" -r '.memory_gb // empty' "${inputs_file}")"
+    requested_lsf_queue="$("${JQ}" -r '.lsf_queue // empty' "${inputs_file}")"
+    [[ -z "${requested_lsf_queue}" ]] && requested_lsf_queue="${DEFAULT_LSF_QUEUE}"
   fi
 
   stats="$(parse_lsf_stats "${job_id}" 2>/dev/null || true)"
   if [[ -z "${stats}" ]]; then
-    echo "${RUN_ID},${module},${call_alias},${job_id},NOT_FOUND,${requested_cpu},${requested_memory_gb},,,,,,,,," >> "${OUTPUT}"
+    echo "${RUN_ID},${module},${call_alias},${job_id},NOT_FOUND,${requested_cpu},${requested_memory_gb},${requested_lsf_queue},,,,,,,," >> "${OUTPUT}"
     continue
   fi
 
@@ -263,10 +352,10 @@ for call_path in "${CALLS_DIR}"/*/; do
   memory_utilization_pct="$(calc_utilization_pct "${max_mem_gb}" "${requested_memory_gb}")"
   [[ "${exit_code}" == "-" ]] && exit_code=""
 
-  row="${RUN_ID},${module},${call_alias},${job_id},${lsf_status},${requested_cpu},${requested_memory_gb},${max_mem_gb},${avg_mem_gb},${memory_utilization_pct},${lsf_mem_efficiency_pct},${cpu_time_sec},${wall_time_sec},${cpu_avg_efficiency_pct},${cpu_peak_efficiency_pct},${exit_code}"
+  row="${RUN_ID},${module},${call_alias},${job_id},${lsf_status},${requested_cpu},${requested_memory_gb},${requested_lsf_queue},${max_mem_gb},${avg_mem_gb},${memory_utilization_pct},${lsf_mem_efficiency_pct},${cpu_time_sec},${wall_time_sec},${cpu_avg_efficiency_pct},${cpu_peak_efficiency_pct},${exit_code}"
   echo "${row}" >> "${OUTPUT}"
 
-  jq -n \
+  "${JQ}" -n \
     --arg run_id "${RUN_ID}" \
     --arg module_name "${module}" \
     --arg call_alias "${call_alias}" \
@@ -274,6 +363,7 @@ for call_path in "${CALLS_DIR}"/*/; do
     --arg lsf_status "${lsf_status}" \
     --argjson requested_cpu "$(json_number_or_null "${requested_cpu}")" \
     --argjson requested_memory_gb "$(json_number_or_null "${requested_memory_gb}")" \
+    --arg requested_lsf_queue "${requested_lsf_queue}" \
     --argjson actual_max_memory_gb "$(json_number_or_null "${max_mem_gb}")" \
     --argjson actual_avg_memory_gb "$(json_number_or_null "${avg_mem_gb}")" \
     --argjson memory_utilization_pct "$(json_number_or_null "${memory_utilization_pct}")" \
@@ -291,7 +381,8 @@ for call_path in "${CALLS_DIR}"/*/; do
       lsf_status: $lsf_status,
       requested: {
         cpu: $requested_cpu,
-        memory_gb: $requested_memory_gb
+        memory_gb: $requested_memory_gb,
+        lsf_queue: $requested_lsf_queue
       },
       actual: {
         max_memory_gb: $actual_max_memory_gb,
@@ -316,7 +407,7 @@ fi
 
 if [[ "${WRITE_JSON}" -eq 1 ]]; then
   if [[ -s "${tmp_rows}" ]]; then
-    jq -s \
+    "${JQ}" -s \
     --arg generated_at "$(date -Is)" \
     --arg snap_root "${SNAP_ROOT}" \
     --arg run_id "${RUN_ID}" \
@@ -331,8 +422,16 @@ if [[ "${WRITE_JSON}" -eq 1 ]]; then
   fi
 fi
 
+if [[ -n "${EXPORT_DIR}" ]]; then
+  EXPORT_DIR="$(mkdir -p "${EXPORT_DIR}" && cd "${EXPORT_DIR}" && pwd)"
+  cp -f "${OUTPUT}" "${EXPORT_DIR}/"
+  [[ -f "${JSON_OUTPUT}" ]] && cp -f "${JSON_OUTPUT}" "${EXPORT_DIR}/"
+  echo "Exported resource usage copies to: ${EXPORT_DIR}"
+fi
+
 echo "Wrote resource usage report: ${OUTPUT}"
 [[ -f "${JSON_OUTPUT}" ]] && echo "Wrote resource usage JSON: ${JSON_OUTPUT}"
+echo "  workflow runs root: ${RUNS_ROOT}"
 echo "  run_id: ${RUN_ID}"
 echo "  modules with job_id: ${module_count}"
 echo "  modules queried from LSF: ${queried_count}"

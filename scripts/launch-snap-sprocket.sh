@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export PATH="/usr/bin:/bin:/usr/local/bin:${PATH:-}"
+
 # Launch the static daedalus_from_cellranger workflow (upstream onwards) via Sprocket.
 #
 # Usage:
@@ -86,7 +88,7 @@ echo "==> Rendering Sprocket config"
 bash "${SCRIPT_DIR}/render-sprocket-config.sh" "${SNAP_ROOT}" "${INPUTS}"
 CONFIG="${GENERATED_CONFIG}"
 MONITOR_SCRIPT="${SCRIPT_DIR}/monitor-snap-task-emails.sh"
-RESOURCE_SCRIPT="${SCRIPT_DIR}/collect-snap-resource-usage.sh"
+RESOURCE_SCRIPT="${SCRIPT_DIR}/collect-resource-usage.sh"
 
 NOTIFY_EMAIL="$(
   grep -o '"daedalus_from_cellranger.notify_email"[[:space:]]*:[[:space:]]*"[^"]*"' "${INPUTS}" \
@@ -131,7 +133,14 @@ set -e
 
 if [[ "${COLLECT_RESOURCES}" -eq 1 ]]; then
   echo "==> Collecting per-module resource usage (requested vs actual)"
-  bash "${RESOURCE_SCRIPT}" --snap-root "${SNAP_ROOT}" --latest --json || true
+  if ! bash "${RESOURCE_SCRIPT}" \
+    --snap-root "${SNAP_ROOT}" \
+    --workflow "${WORKFLOW_NAME}" \
+    --latest \
+    --json; then
+    echo "WARNING: resource usage collection failed (see message above). Re-run on HPC:" >&2
+    echo "  bash scripts/extract-resource-usage.sh --run-id <RUN_ID>" >&2
+  fi
 fi
 
 if [[ "${RUN_EXIT}" -eq 0 ]]; then
