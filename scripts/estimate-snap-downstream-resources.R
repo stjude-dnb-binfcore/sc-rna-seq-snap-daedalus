@@ -218,6 +218,8 @@ populate_project_paths <- function(cfg, snap_root) {
   cfg$data_dir <- paths$data_dir
   cfg$metadata_dir <- paths$metadata_dir
   cfg$gene_markers_dir <- paths$gene_markers_dir
+  # Cell-types Rmd reads gene_markers_dir_annotation_module; keep in sync with resolved root.
+  cfg$gene_markers_dir_annotation_module <- paths$gene_markers_dir
   if (is.null(cfg$resource_profile)) cfg$resource_profile <- list()
   cfg$resource_profile$container_image <- paths$container_image
   cfg
@@ -233,8 +235,45 @@ workflow_toggles <- function(cfg) {
     run_cell_types = isTRUE(wp$run_cell_types %||% FALSE),
     run_clone_phylogeny = isTRUE(wp$run_clone_phylogeny %||% FALSE),
     run_de_go = isTRUE(wp$run_de_go %||% FALSE),
-    run_rshiny = isTRUE(wp$run_rshiny %||% FALSE)
+    run_rshiny = isTRUE(wp$run_rshiny %||% FALSE),
+    run_project_updates = isTRUE(wp$run_project_updates %||% FALSE)
   )
+}
+
+#' Map workflow_profile toggles to resource keys (matches DownstreamResources in WDL).
+WORKFLOW_MODULE_RESOURCES <- list(
+  list(toggle = "run_upstream", label = "upstream", future = TRUE),
+  list(toggle = "run_integrative", label = "integrative", future = TRUE),
+  list(toggle = "run_cluster", label = "cluster", future = TRUE),
+  list(toggle = "run_contamination_removal", label = "contamination_removal", prefix = "contamination", future = TRUE),
+  list(toggle = "run_cell_types", label = "cell_types", future = FALSE),
+  list(toggle = "run_clone_phylogeny", label = "clone_phylogeny", future = FALSE),
+  list(toggle = "run_de_go", label = "de_go", future = TRUE),
+  list(toggle = "run_rshiny", label = "rshiny", future = FALSE),
+  list(toggle = "run_project_updates", label = "project_updates", future = FALSE)
+)
+
+print_workflow_profile_resources <- function(toggles, res) {
+  enabled <- Filter(function(m) isTRUE(toggles[[m$toggle]]), WORKFLOW_MODULE_RESOURCES)
+  if (!length(enabled)) {
+    cat("  workflow_profile: (no downstream modules enabled)\n")
+    return(invisible(NULL))
+  }
+
+  labels <- vapply(enabled, function(m) m$label, character(1L))
+  cat("  workflow_profile enabled:", paste(labels, collapse = ", "), "\n")
+  for (m in enabled) {
+    prefix <- m$prefix %||% m$label
+    cpu <- res[[paste0(prefix, "_cpu")]]
+    mem <- res[[paste0(prefix, "_memory_gb")]]
+    if (isTRUE(m$future)) {
+      fut <- res[[paste0(prefix, "_future_globals_gib")]]
+      cat(sprintf("  %s: %s cpu %s GB future: %s GiB\n", m$label, cpu, mem, fut))
+    } else {
+      cat(sprintf("  %s: %s cpu %s GB\n", m$label, cpu, mem))
+    }
+  }
+  invisible(NULL)
 }
 
 LSF_MEMORY_HEADROOM <- 1.2
@@ -272,11 +311,20 @@ compute_resources <- function(num_samples, estimated_cells_per_sample, total_cel
     cluster_cpu = if (scale <= 1L) 4L else if (scale <= 2L) 8L else 12L,
     cluster_memory_gb = 48L + (cell_scale - 1L) * 16L,
     cluster_future_globals_gib = 400L + (cell_scale - 1L) * 100L,
+    contamination_cpu = 8L,
     contamination_memory_gb = 96L + (cell_scale - 1L) * 24L,
     contamination_future_globals_gib = 400L + (cell_scale - 1L) * 100L,
+    cell_types_cpu = 4L,
     cell_types_memory_gb = 64L + (cell_scale - 1L) * 16L,
+    clone_phylogeny_cpu = 16L,
+    clone_phylogeny_memory_gb = 30L,
+    de_go_cpu = 4L,
     de_go_memory_gb = 32L + (cell_scale - 1L) * 8L,
-    de_go_future_globals_gib = 200L + (cell_scale - 1L) * 50L
+    de_go_future_globals_gib = 200L + (cell_scale - 1L) * 50L,
+    rshiny_cpu = 4L,
+    rshiny_memory_gb = 30L,
+    project_updates_cpu = 1L,
+    project_updates_memory_gb = 4L
   )
 
   for (key in grep("_memory_gb$", names(res), value = TRUE)) {
@@ -329,7 +377,8 @@ build_sprocket_inputs <- function(
     `daedalus_from_cellranger.run_cell_types` = toggles$run_cell_types,
     `daedalus_from_cellranger.run_clone_phylogeny` = toggles$run_clone_phylogeny,
     `daedalus_from_cellranger.run_de_go` = toggles$run_de_go,
-    `daedalus_from_cellranger.run_rshiny` = toggles$run_rshiny
+    `daedalus_from_cellranger.run_rshiny` = toggles$run_rshiny,
+    `daedalus_from_cellranger.run_project_updates` = toggles$run_project_updates
   )
 }
 
@@ -392,9 +441,7 @@ main <- function() {
       cat("    ", nm, ":", cellranger$per_sample[[nm]], "cells\n")
     }
   }
-  cat("  upstream:", res$upstream_cpu, "cpu", res$upstream_memory_gb, "GB future:", res$upstream_future_globals_gib, "GiB\n")
-  cat("  integrative:", res$integrative_cpu, "cpu", res$integrative_memory_gb, "GB future:", res$integrative_future_globals_gib, "GiB\n")
-  cat("  cluster:", res$cluster_cpu, "cpu", res$cluster_memory_gb, "GB future:", res$cluster_future_globals_gib, "GiB\n")
+  print_workflow_profile_resources(toggles, res)
 
   if (isTRUE(args$update_yaml)) {
     cfg <- populate_project_paths(cfg, snap_root)

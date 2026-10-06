@@ -68,20 +68,19 @@ bash launch-snap-downstream.sh --submit
 # Reattach later: tmux attach -t snap
 ```
 
-The WDL uses `after` clauses to enforce this dependency graph:
+The WDL uses `after` clauses to enforce module order (see
+`workflows/MODULE_DEPENDENCIES.md` for the full diagram including FastQC,
+Cell Ranger, and **project-updates**).
 
 ```text
-Cell Ranger validation -> Upstream +-> Integrative
-                                    \-> Cluster +-> Contamination removal
-                                                \-> Cell types +-> Clone phylogeny
-                                                                +-> DE/GO
-                                                                \-> R Shiny
+summary → upstream → integrative (opt) → cluster → contamination (opt)
+       → cell_types → rshiny → project_updates (opt)
+       cell_types ─┬→ clone (opt)   } parallel; nothing downstream waits on these
+                   └→ de_go (opt)   }
 ```
 
-Each descendant lists all earlier calls on its branch, so disabling an
-intermediate module does not remove its dependency on an enabled ancestor.
 When a data-producing prerequisite is disabled, its expected result files must
-already exist.
+already exist on disk.
 
 ---
 
@@ -307,6 +306,7 @@ bash scripts/collect-snap-resource-usage.sh --snap-root . --run-id 2026-08-31_23
 | Clone phylogeny | `run_clone_phylogeny` | `run_clone_phylogeny` |
 | DE / GO | `run_de_go` | `run_de_go` |
 | R Shiny app | `run_rshiny` | `run_rshiny` |
+| Project report / summary | `run_project_updates` | `run_project_updates` |
 
 Enabled modules run in dependency order; skipped modules do not block later steps.
 
