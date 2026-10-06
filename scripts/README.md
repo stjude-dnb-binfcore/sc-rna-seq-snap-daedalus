@@ -1,6 +1,6 @@
 # Daedalus downstream launcher
 
-`launch-snap-downstream.sh` runs enabled downstream analyses from completed
+`launch-daedalus-downstream.sh` runs enabled downstream analyses from completed
 Cell Ranger outputs. It uses the checked-in
 `workflows/daedalus_from_cellranger.wdl`.
 
@@ -26,7 +26,7 @@ Run from the **project root** (parent of this `scripts/` folder):
 
 ```bash
 # Dry-run: refresh YAML/inputs, check and validate the static WDL (no LSF submit)
-bash launch-snap-downstream.sh
+bash launch-daedalus-downstream.sh
 ```
 
 ---
@@ -36,14 +36,14 @@ bash launch-snap-downstream.sh
 ### Option 1 — nohup in the background (recommended)
 
 ```bash
-nohup bash launch-snap-downstream.sh --submit > snap-launch.log 2>&1 &
+nohup bash launch-daedalus-downstream.sh --submit > daedalus-launch.log 2>&1 &
 echo $!   # note the PID
 ```
 
 Monitor progress:
 
 ```bash
-tail -f snap-launch.log
+tail -f daedalus-launch.log
 ```
 
 or
@@ -59,29 +59,28 @@ the cache key.
 ### Option 2 — tmux or screen
 
 ```bash
-tmux new -s snap
+tmux new -s daedalus
 module load sprocket R singularity
-bash launch-snap-downstream.sh
+bash launch-daedalus-downstream.sh
 
-bash launch-snap-downstream.sh --submit
+bash launch-daedalus-downstream.sh --submit
 # Detach: Ctrl+b then d
-# Reattach later: tmux attach -t snap
+# Reattach later: tmux attach -t daedalus
 ```
 
-The WDL uses `after` clauses to enforce this dependency graph:
+The WDL uses `after` clauses to enforce module order (see
+`workflows/MODULE_DEPENDENCIES.md` for the full diagram including FastQC,
+Cell Ranger, and **project-updates**).
 
 ```text
-Cell Ranger validation -> Upstream +-> Integrative
-                                    \-> Cluster +-> Contamination removal
-                                                \-> Cell types +-> Clone phylogeny
-                                                                +-> DE/GO
-                                                                \-> R Shiny
+summary → upstream → integrative (opt) → cluster → contamination (opt)
+       → cell_types → rshiny → project_updates (opt)
+       cell_types ─┬→ clone (opt)   } parallel; nothing downstream waits on these
+                   └→ de_go (opt)   }
 ```
 
-Each descendant lists all earlier calls on its branch, so disabling an
-intermediate module does not remove its dependency on an enabled ancestor.
 When a data-producing prerequisite is disabled, its expected result files must
-already exist.
+already exist on disk.
 
 ---
 
@@ -91,22 +90,22 @@ Each run performs these steps in order:
 
 | Step | Script or command | Output |
 |------|-------------------|--------|
-| 1. Estimate resources | `scripts/estimate-snap-downstream-resources.R` | `<root_dir>/inputs/project_parameters.generated.yaml`, `inputs/generated_downstream.json`, `inputs/sprocket_inputs.json` |
+| 1. Estimate resources | `scripts/estimate-daedalus-downstream-resources.R` | `<root_dir>/inputs/project_parameters.generated.yaml`, `inputs/generated_downstream.json`, `inputs/sprocket_inputs.json` |
 | 2. Render Sprocket config | `scripts/render-sprocket-config.sh` | `inputs/sprocket.generated.toml` |
 | 3. Check WDL | `sprocket check workflows/daedalus_from_cellranger.wdl` | — |
 | 4. Validate inputs | `sprocket validate workflows/daedalus_from_cellranger.wdl @inputs/sprocket_inputs.json --config inputs/sprocket.generated.toml` | — |
 | 5. Submit (if not dry-run) | `sprocket run ... --output-dir out --no-call-cache` | LSF jobs |
-| 6. Collect resource usage | `scripts/collect-snap-resource-usage.sh --latest --json` | `out/resource_usage/` |
+| 6. Collect resource usage | `scripts/collect-resource-usage.sh --latest --json` | `out/resource_usage/` |
 
 The resource estimator:
 
 - Counts samples from `project_metadata.tsv` (or Cell Ranger output directories).
 - Reads **Cell Ranger** `metrics_summary.csv` for cells per sample.
 - Scales LSF CPU, memory, and `future_globals_*` values (baseline: 8 samples × 50k cells).
-- Adds **20% LSF memory headroom** to every module’s `*_memory_gb` value (via `apply_lsf_memory_headroom()` in `estimate-snap-downstream-resources.R`) so jobs are not killed when usage spikes slightly above the base estimate. Example: upstream base **30 GB** → **36 GB** requested on LSF (`ceil(30 × 1.2)`).
+- Adds **20% LSF memory headroom** to every module’s `*_memory_gb` value (via `apply_lsf_memory_headroom()` in `estimate-daedalus-downstream-resources.R`) so jobs are not killed when usage spikes slightly above the base estimate. Example: upstream base **30 GB** → **36 GB** requested on LSF (`ceil(30 × 1.2)`).
 - Copies **workflow module toggles** from `workflow_profile` in your master YAML into Sprocket inputs.
 
-At runtime, downstream R modules load config via `scripts/snap_read_config.R` (see [YAML config: which file is used?](#yaml-config-which-file-is-used) below).
+At runtime, downstream R modules load config via `scripts/daedalus_read_config.R` (see [YAML config: which file is used?](#yaml-config-which-file-is-used) below).
 
 ---
 
@@ -116,38 +115,38 @@ The pipeline supports **three ways to run** downstream modules. The config file 
 
 | How you launch | Launcher | Config file used |
 |----------------|----------|------------------|
-| **WDL / Sprocket** | `bash launch-snap-downstream.sh --submit` or `bash scripts/launch-snap-sprocket.sh` | `<root_dir>/inputs/project_parameters.generated.yaml` |
+| **WDL / Sprocket** | `bash launch-daedalus-downstream.sh --submit` or `bash scripts/launch-daedalus-sprocket.sh` | `<root_dir>/inputs/project_parameters.generated.yaml` |
 | **Full LSF chain** | `bash launch_full_pipeline.sh` | `project_parameters.Config.yaml` |
 | **Interactive / per-module LSF** | Run `analyses/<module>/run-*.sh` or `Rscript run-*.R` directly | `project_parameters.Config.yaml` |
 
 ### How it works
 
-- **WDL/Sprocket** sets `SNAP_CONFIG_FILE` in `tasks/post_cellranger_required.wdl` and `tasks/post_cellranger_optional.wdl` to the generated overlay. Module scripts detect this and load the generated YAML (scaled resources + paths refreshed at launch).
-- **All other run modes** do not set `SNAP_CONFIG_FILE`, so modules load the master template `project_parameters.Config.yaml`.
+- **WDL/Sprocket** sets `DAEDALUS_CONFIG_FILE` in `tasks/post_cellranger_required.wdl` and `tasks/post_cellranger_optional.wdl` to the generated overlay. Module scripts detect this and load the generated YAML (scaled resources + paths refreshed at launch).
+- **All other run modes** do not set `DAEDALUS_CONFIG_FILE`, so modules load the master template `project_parameters.Config.yaml`.
 - **FastQC and Cell Ranger** remain outside this WDL workflow and continue to read `project_parameters.Config.yaml` directly.
 
 ### Helpers (R and bash)
 
 | File | Use |
 |------|-----|
-| `scripts/snap_read_config.R` | `snap_load_project_config()`, `snap_read_master_config()`, `snap_is_wdl_run()` |
-| `scripts/snap-read-config.sh` | `snap_yaml_get`, `snap_yaml_list`, `snap_log_config_file` |
+| `scripts/daedalus_read_config.R` | `daedalus_load_project_config()`, `daedalus_read_master_config()`, `daedalus_is_wdl_run()` |
+| `scripts/daedalus-read-config.sh` | `daedalus_yaml_get`, `daedalus_yaml_list`, `daedalus_log_config_file` |
 
 **R module entry scripts** (upstream onwards) use:
 
 ```r
-snap_root <- normalizePath("../..", winslash = "/")
-source(file.path(snap_root, "scripts", "snap_read_config.R"))
-yaml <- snap_load_project_config(snap_root)   # prints: Using config: <path>
+daedalus_root <- normalizePath("../..", winslash = "/")
+source(file.path(daedalus_root, "scripts", "daedalus_read_config.R"))
+yaml <- daedalus_load_project_config(daedalus_root)   # prints: Using config: <path>
 ```
 
 **Bash module scripts** (e.g. clone-phylogeny) use:
 
 ```bash
-SNAP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "${SNAP_ROOT}/scripts/snap-read-config.sh"
-snap_log_config_file
-root_dir="$(snap_yaml_get root_dir)"
+DAEDALUS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "${DAEDALUS_ROOT}/scripts/daedalus-read-config.sh"
+daedalus_log_config_file
+root_dir="$(daedalus_yaml_get root_dir)"
 ```
 
 ### Manual override
@@ -155,7 +154,7 @@ root_dir="$(snap_yaml_get root_dir)"
 To force a specific YAML (e.g. test the generated overlay outside Sprocket):
 
 ```bash
-export SNAP_CONFIG_FILE=/path/to/snap/inputs/project_parameters.generated.yaml
+export DAEDALUS_CONFIG_FILE=/path/to/daedalus/inputs/project_parameters.generated.yaml
 Rscript analyses/upstream-analysis/run-upstream-analysis.R
 ```
 
@@ -164,7 +163,7 @@ Rscript analyses/upstream-analysis/run-upstream-analysis.R
 | File | When to edit |
 |------|----------------|
 | `project_parameters.Config.yaml` | Biology, paths, `workflow_profile`, emails — **always edit this** for interactive/LSF runs |
-| `<root_dir>/inputs/project_parameters.generated.yaml` | **Do not edit by hand** — regenerated by `estimate-snap-downstream-resources.R` on each Sprocket launch |
+| `<root_dir>/inputs/project_parameters.generated.yaml` | **Do not edit by hand** — regenerated by `estimate-daedalus-downstream-resources.R` on each Sprocket launch |
 
 ---
 
@@ -200,7 +199,7 @@ workflow_profile:
 
 **Example — enable more modules later:**
 
-Set the relevant `run_*` keys to `true`, then re-run `bash launch-snap-downstream.sh --submit`.
+Set the relevant `run_*` keys to `true`, then re-run `bash launch-daedalus-downstream.sh --submit`.
 
 Optional resource overrides (usually leave as `null` so Cell Ranger metrics drive scaling):
 
@@ -249,23 +248,23 @@ To change WDL structure, edit `workflows/daedalus_from_cellranger.wdl`, `tasks/p
 
 | Script | Purpose |
 |--------|---------|
-| `launch-snap-sprocket.sh` | Main orchestrator (estimate → render config → check → validate → run → resource report) |
-| `estimate-snap-downstream-resources.R` | Cell Ranger metrics → LSF resources + YAML/JSON |
+| `launch-daedalus-sprocket.sh` | Main orchestrator (estimate → render config → check → validate → run → resource report) |
+| `estimate-daedalus-downstream-resources.R` | Cell Ranger metrics → LSF resources + YAML/JSON |
 | `render-sprocket-config.sh` | Writes `inputs/sprocket.generated.toml` for launch |
-| `monitor-snap-task-emails.sh` | Background per-module start/complete emails while Sprocket runs |
-| `snap-notify-email.sh` | Sends workflow/module email notifications (login node) |
-| `snap_read_config.R` | Helper used by R modules to load YAML config |
-| `snap-read-config.sh` | Bash helper for shell scripts (same config precedence as `snap_read_config.R`) |
-| `collect-snap-resource-usage.sh` | Post-run LSF resource report (requested vs actual per module) |
+| `monitor-daedalus-task-emails.sh` | Background per-module start/complete emails while Sprocket runs |
+| `daedalus-notify-email.sh` | Sends workflow/module email notifications (login node) |
+| `daedalus_read_config.R` | Helper used by R modules to load YAML config |
+| `daedalus-read-config.sh` | Bash helper for shell scripts (same config precedence as `daedalus_read_config.R`) |
+| `collect-resource-usage.sh` | Post-run LSF resource report (requested vs actual per module) |
 | `test-downstream-layout.sh` | Sanity-check that expected WDL/inputs files exist |
 
-Root launcher (one level up): `launch-snap-downstream.sh`
+Root launcher (one level up): `launch-daedalus-downstream.sh`
 
 ---
 
 ## Resource usage (requested vs actual)
 
-After each Sprocket run, the launcher calls `scripts/collect-snap-resource-usage.sh` to compare **requested** LSF resources (from task `inputs.json`) with **actual** usage from LSF (`bjobs`).
+After each Sprocket run, the launcher calls `scripts/collect-resource-usage.sh` to compare **requested** LSF resources (from task `inputs.json`) with **actual** usage from LSF (`bjobs`).
 
 Reports are written to:
 
@@ -280,10 +279,10 @@ Key columns: `requested_cpu`, `requested_memory_gb`, `actual_max_memory_gb`, `me
 
 ```bash
 # Latest Sprocket run
-bash scripts/collect-snap-resource-usage.sh --snap-root . --latest --json
+bash scripts/collect-resource-usage.sh --daedalus-root . --latest --json
 
 # Specific run
-bash scripts/collect-snap-resource-usage.sh --snap-root . --run-id 2026-08-31_234355266651904
+bash scripts/collect-resource-usage.sh --daedalus-root . --run-id 2026-08-31_234355266651904
 ```
 
 **Requested resources only** (pre-run estimates, not actual usage):
@@ -307,6 +306,7 @@ bash scripts/collect-snap-resource-usage.sh --snap-root . --run-id 2026-08-31_23
 | Clone phylogeny | `run_clone_phylogeny` | `run_clone_phylogeny` |
 | DE / GO | `run_de_go` | `run_de_go` |
 | R Shiny app | `run_rshiny` | `run_rshiny` |
+| Project report / summary | `run_project_updates` | `run_project_updates` |
 
 Enabled modules run in dependency order; skipped modules do not block later steps.
 
@@ -316,9 +316,9 @@ Notifications go to **`CONTACT_EMAIL`** in `project_parameters.Config.yaml` (pas
 
 | When | How |
 |------|-----|
-| Workflow submitted | `launch-snap-sprocket.sh` → `snap-notify-email.sh` (login node) |
-| Each module started | `monitor-snap-task-emails.sh` when LSF `job_id` appears for that module |
-| Each module completed / failed | `monitor-snap-task-emails.sh` when LSF job reaches `DONE` / `EXIT` |
+| Workflow submitted | `launch-daedalus-sprocket.sh` → `daedalus-notify-email.sh` (login node) |
+| Each module started | `monitor-daedalus-task-emails.sh` when LSF `job_id` appears for that module |
+| Each module completed / failed | `monitor-daedalus-task-emails.sh` when LSF job reaches `DONE` / `EXIT` |
 | Whole workflow finished / failed | Launch script after `sprocket run` exits |
 
 Module emails use **`CONTACT_EMAIL`** from `project_parameters.Config.yaml`. The monitor runs in the background while Sprocket executes and polls `out/runs/daedalus_from_cellranger/_latest/calls/`.
@@ -333,10 +333,10 @@ To change the recipient, edit `CONTACT_EMAIL` in the master YAML and re-run the 
 |-------|-----|
 | `sprocket not found` | `module load sprocket` on an HPC node |
 | `singularity: command not found` inside task | Load singularity before launch: `module load singularity`. Tasks must not call `singularity exec` manually — Sprocket wraps commands via `runtime.container`. |
-| Missing Cell Ranger metrics | Complete Cell Ranger or run `Rscript scripts/estimate-snap-downstream-resources.R --snap-root . --output inputs/generated_downstream.json --estimated-cells-per-sample <count>` |
+| Missing Cell Ranger metrics | Complete Cell Ranger or run `Rscript scripts/estimate-daedalus-downstream-resources.R --daedalus-root . --output inputs/generated_downstream.json --estimated-cells-per-sample <count>` |
 | Container pull fails / `repository name must be lowercase` | Local `.sif` paths must use the `file://` scheme for Sprocket (auto-added in `sprocket_inputs.json`). Keep plain paths in YAML; re-run the launcher to regenerate inputs. |
 | Wrong modules running | Edit `workflow_profile` in `project_parameters.Config.yaml`, then re-launch |
-| LSF job killed at memory limit (`TERM_MEMLIMIT`) | Re-run the launcher so `estimate-snap-downstream-resources.R` refreshes `inputs/sprocket_inputs.json` with the 20% headroom applied. If a module still OOMs, increase the base tier manually in `compute_resources()` or reduce parallel work inside that R module. |
+| LSF job killed at memory limit (`TERM_MEMLIMIT`) | Re-run the launcher so `estimate-daedalus-downstream-resources.R` refreshes `inputs/sprocket_inputs.json` with the 20% headroom applied. If a module still OOMs, increase the base tier manually in `compute_resources()` or reduce parallel work inside that R module. |
 
 Monitor LSF jobs after submit:
 
@@ -348,4 +348,4 @@ bjobs -u $USER
 
 ## Legacy path (not recommended)
 
-`launch_full_pipeline.sh` uses static LSF bash scripts under `analyses/*/lsf-script.txt` and reads **`project_parameters.Config.yaml`** only (not the generated overlay). FastQC and Cell Ranger also read the master YAML directly. For dynamic scaling and optional modules via WDL, use **`launch-snap-downstream.sh`** instead.
+`launch_full_pipeline.sh` uses static LSF bash scripts under `analyses/*/lsf-script.txt` and reads **`project_parameters.Config.yaml`** only (not the generated overlay). FastQC and Cell Ranger also read the master YAML directly. For dynamic scaling and optional modules via WDL, use **`launch-daedalus-downstream.sh`** instead.

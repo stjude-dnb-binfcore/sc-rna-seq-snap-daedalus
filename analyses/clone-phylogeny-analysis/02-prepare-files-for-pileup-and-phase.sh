@@ -17,14 +17,14 @@ mkdir -p ./results
 mkdir -p ./results/02-prepare-files-for-pileup-and-phase
 #######################################################
 # Read config: WDL/Sprocket uses inputs/project_parameters.generated.yaml
-# (SNAP_CONFIG_FILE is set by the static WDL tasks). Interactive, LSF, and
+# (DAEDALUS_CONFIG_FILE is set by the static WDL tasks). Interactive, LSF, and
 # launch_full_pipeline.sh use project_parameters.Config.yaml.
-SNAP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-# shellcheck source=../../scripts/snap-read-config.sh
-source "${SNAP_ROOT}/scripts/snap-read-config.sh"
-snap_log_config_file
+DAEDALUS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=../../scripts/daedalus-read-config.sh
+source "${DAEDALUS_ROOT}/scripts/daedalus-read-config.sh"
+daedalus_log_config_file
 
-root_dir="$(snap_yaml_get root_dir)"
+root_dir="$(daedalus_yaml_get root_dir)"
 echo "${root_dir}"
 
 module_dir=${root_dir}/analyses/clone-phylogeny-analysis
@@ -36,7 +36,7 @@ echo "${input_dir}"
 references_dir=${input_dir}/references
 echo "${references_dir}"
 
-genome_name="$(snap_yaml_get genome_name)"
+genome_name="$(daedalus_yaml_get genome_name)"
 echo "$genome_name"
 
 ########################################################################

@@ -5,14 +5,14 @@ version 1.3
 # Container execution is handled by Sprocket (lsf_apptainer backend) via
 # requirements.container — do not call singularity/apptainer in command blocks.
 # Per-module email: LSF bsub -B/-N/-u CONTACT_EMAIL (inputs/sprocket.generated.toml).
-# Workflow email: scripts/snap-notify-email.sh from launch-snap-sprocket.sh.
+# Workflow email: scripts/daedalus-notify-email.sh from launch-daedalus-sprocket.sh.
 task run_integrative {
     meta {
         description: "Integrative analysis module"
     }
 
     input {
-        String snap_root
+        String daedalus_root
         String container_image
         String notify_email
         Int cpu = 10
@@ -24,9 +24,9 @@ task run_integrative {
         set -euo pipefail
         TASK_DIR="$(pwd)"
         echo "Module: integrative  LSF mail: ~{notify_email}"
-        export SNAP_CONFIG_FILE="~{snap_root}/inputs/project_parameters.generated.yaml"
+        export DAEDALUS_CONFIG_FILE="~{daedalus_root}/inputs/project_parameters.generated.yaml"
         export FUTURE_GLOBALS_MAXSIZE_GIB="~{future_globals_gib}"
-        cd "~{snap_root}/analyses/integrative-analysis"
+        cd "~{daedalus_root}/analyses/integrative-analysis"
         bash run-integrative-analysis.sh
         echo "done" > "${TASK_DIR}/integrative.done"
     >>>
@@ -48,7 +48,7 @@ task run_contamination_removal {
     }
 
     input {
-        String snap_root
+        String daedalus_root
         String container_image
         String notify_email
         Int cpu = 8
@@ -60,9 +60,9 @@ task run_contamination_removal {
         set -euo pipefail
         TASK_DIR="$(pwd)"
         echo "Module: contamination_removal  LSF mail: ~{notify_email}"
-        export SNAP_CONFIG_FILE="~{snap_root}/inputs/project_parameters.generated.yaml"
+        export DAEDALUS_CONFIG_FILE="~{daedalus_root}/inputs/project_parameters.generated.yaml"
         export FUTURE_GLOBALS_MAXSIZE_GIB="~{future_globals_gib}"
-        cd "~{snap_root}/analyses/cell-contamination-removal-analysis"
+        cd "~{daedalus_root}/analyses/cell-contamination-removal-analysis"
         bash run-cell-contamination-removal-analysis.sh
         echo "done" > "${TASK_DIR}/contamination.done"
     >>>
@@ -84,7 +84,7 @@ task run_clone_phylogeny {
     }
 
     input {
-        String snap_root
+        String daedalus_root
         String container_image
         String notify_email
         Int cpu = 16
@@ -95,8 +95,8 @@ task run_clone_phylogeny {
         set -euo pipefail
         TASK_DIR="$(pwd)"
         echo "Module: clone_phylogeny  LSF mail: ~{notify_email}"
-        export SNAP_CONFIG_FILE="~{snap_root}/inputs/project_parameters.generated.yaml"
-        cd "~{snap_root}/analyses/clone-phylogeny-analysis"
+        export DAEDALUS_CONFIG_FILE="~{daedalus_root}/inputs/project_parameters.generated.yaml"
+        cd "~{daedalus_root}/analyses/clone-phylogeny-analysis"
         bash run-clone-phylogeny-analysis.sh
         echo "done" > "${TASK_DIR}/clone_phylogeny.done"
     >>>
@@ -118,7 +118,7 @@ task run_de_go {
     }
 
     input {
-        String snap_root
+        String daedalus_root
         String container_image
         String notify_email
         Int cpu = 4
@@ -130,9 +130,9 @@ task run_de_go {
         set -euo pipefail
         TASK_DIR="$(pwd)"
         echo "Module: de_go  LSF mail: ~{notify_email}"
-        export SNAP_CONFIG_FILE="~{snap_root}/inputs/project_parameters.generated.yaml"
+        export DAEDALUS_CONFIG_FILE="~{daedalus_root}/inputs/project_parameters.generated.yaml"
         export FUTURE_GLOBALS_MAXSIZE_GIB="~{future_globals_gib}"
-        cd "~{snap_root}/analyses/de-go-analysis"
+        cd "~{daedalus_root}/analyses/de-go-analysis"
         bash run-de-go-analysis.sh
         echo "done" > "${TASK_DIR}/de_go.done"
     >>>

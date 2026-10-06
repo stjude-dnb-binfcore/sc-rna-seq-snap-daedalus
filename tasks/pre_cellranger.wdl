@@ -199,7 +199,9 @@ task estimate_downstream_resources {
           de_go_memory_gb = as.integer(ceiling((32L + 8L * (cell_scale - 1L)) * 1.2)),
           de_go_future_globals_gib = 200L + 50L * (cell_scale - 1L),
           rshiny_cpu = 4L,
-          rshiny_memory_gb = 30L
+          rshiny_memory_gb = 30L,
+          project_updates_cpu = 1L,
+          project_updates_memory_gb = as.integer(ceiling(4L * 1.2))
         )
 
         entries <- sprintf('  "%s": %d', names(resources), resources)

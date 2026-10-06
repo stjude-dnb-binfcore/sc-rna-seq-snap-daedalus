@@ -2,11 +2,11 @@
 # Poll Sprocket run directories and email CONTACT_EMAIL on module start/complete.
 #
 # Usage:
-#   monitor-snap-task-emails.sh --snap-root PATH --to EMAIL --watch-pid PID [--interval SEC]
+#   monitor-daedalus-task-emails.sh --daedalus-root PATH --to EMAIL --watch-pid PID [--interval SEC]
 
 set -euo pipefail
 
-SNAP_ROOT=""
+DAEDALUS_ROOT=""
 NOTIFY_EMAIL=""
 WATCH_PID=""
 INTERVAL=30
@@ -14,7 +14,7 @@ NOTIFY_SCRIPT=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --snap-root) SNAP_ROOT="$2"; shift 2 ;;
+    --daedalus-root) DAEDALUS_ROOT="$2"; shift 2 ;;
     --to) NOTIFY_EMAIL="$2"; shift 2 ;;
     --watch-pid) WATCH_PID="$2"; shift 2 ;;
     --interval) INTERVAL="$2"; shift 2 ;;
@@ -26,14 +26,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "${SNAP_ROOT}" && -n "${NOTIFY_EMAIL}" && -n "${WATCH_PID}" ]] || {
-  echo "Usage: monitor-snap-task-emails.sh --snap-root PATH --to EMAIL --watch-pid PID" >&2
+[[ -n "${DAEDALUS_ROOT}" && -n "${NOTIFY_EMAIL}" && -n "${WATCH_PID}" ]] || {
+  echo "Usage: monitor-daedalus-task-emails.sh --daedalus-root PATH --to EMAIL --watch-pid PID" >&2
   exit 1
 }
 
-NOTIFY_SCRIPT="${SNAP_ROOT}/scripts/snap-notify-email.sh"
-RUNS_ROOT="${SNAP_ROOT}/out/runs/daedalus_from_cellranger"
-STATE_DIR="${SNAP_ROOT}/inputs"
+NOTIFY_SCRIPT="${DAEDALUS_ROOT}/scripts/daedalus-notify-email.sh"
+RUNS_ROOT="${DAEDALUS_ROOT}/out/runs/daedalus_from_cellranger"
+STATE_DIR="${DAEDALUS_ROOT}/inputs"
 
 send_module_email() {
   local subject="$1"
@@ -52,6 +52,7 @@ normalize_module() {
     clone_phylogeny*) echo "clone_phylogeny" ;;
     de_go*) echo "de_go" ;;
     rshiny*) echo "rshiny" ;;
+    project_updates*) echo "project_updates" ;;
     *) return 1 ;;
   esac
 }
@@ -67,13 +68,14 @@ module_label() {
     clone_phylogeny) echo "Clone phylogeny" ;;
     de_go) echo "DE/GO analysis" ;;
     rshiny) echo "R Shiny app" ;;
+    project_updates) echo "Project updates / report" ;;
     *) echo "${module}" ;;
   esac
 }
 
 state_file_for_run() {
   local run_id="$1"
-  echo "${STATE_DIR}/.snap-module-email-state-${run_id}"
+  echo "${STATE_DIR}/.daedalus-module-email-state-${run_id}"
 }
 
 is_marked() {
@@ -146,8 +148,8 @@ while kill -0 "${WATCH_PID}" 2>/dev/null; do
 
         if ! is_marked "${state_file}" "${start_key}"; then
           send_module_email \
-            "[snap] ${module}: started" \
-            "${label} started at $(date -Is)\nLSF job: ${job_id}\nProject: ${SNAP_ROOT}"
+            "[daedalus] ${module}: started" \
+            "${label} started at $(date -Is)\nLSF job: ${job_id}\nProject: ${DAEDALUS_ROOT}"
           mark "${state_file}" "${start_key}"
         fi
 
@@ -158,14 +160,14 @@ while kill -0 "${WATCH_PID}" 2>/dev/null; do
           case "${status}" in
             DONE)
               send_module_email \
-                "[snap] ${module}: completed" \
-                "${label} completed successfully at $(date -Is)\nLSF job: ${job_id}\nProject: ${SNAP_ROOT}"
+                "[daedalus] ${module}: completed" \
+                "${label} completed successfully at $(date -Is)\nLSF job: ${job_id}\nProject: ${DAEDALUS_ROOT}"
               mark "${state_file}" "${complete_key}"
               ;;
             EXIT|ZOMBI|UNKWN)
               send_module_email \
-                "[snap] ${module}: failed" \
-                "${label} failed (LSF status: ${status}) at $(date -Is)\nLSF job: ${job_id}\nProject: ${SNAP_ROOT}\nCheck: ${attempt_dir}/stderr"
+                "[daedalus] ${module}: failed" \
+                "${label} failed (LSF status: ${status}) at $(date -Is)\nLSF job: ${job_id}\nProject: ${DAEDALUS_ROOT}\nCheck: ${attempt_dir}/stderr"
               mark "${state_file}" "${fail_key}"
               ;;
           esac
@@ -200,14 +202,14 @@ if calls_dir="$(resolve_calls_dir 2>/dev/null)"; then
     case "${status}" in
       DONE)
         send_module_email \
-          "[snap] ${module}: completed" \
-          "${label} completed successfully at $(date -Is)\nLSF job: ${job_id}\nProject: ${SNAP_ROOT}"
+          "[daedalus] ${module}: completed" \
+          "${label} completed successfully at $(date -Is)\nLSF job: ${job_id}\nProject: ${DAEDALUS_ROOT}"
         mark "${state_file}" "${complete_key}"
         ;;
       EXIT|ZOMBI|UNKWN|UNKNOWN)
         send_module_email \
-          "[snap] ${module}: failed" \
-          "${label} failed (LSF status: ${status}) at $(date -Is)\nLSF job: ${job_id}\nProject: ${SNAP_ROOT}\nCheck: ${attempt_dir}/stderr"
+          "[daedalus] ${module}: failed" \
+          "${label} failed (LSF status: ${status}) at $(date -Is)\nLSF job: ${job_id}\nProject: ${DAEDALUS_ROOT}\nCheck: ${attempt_dir}/stderr"
         mark "${state_file}" "${fail_key}"
         ;;
     esac

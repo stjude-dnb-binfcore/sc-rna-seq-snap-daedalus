@@ -2,15 +2,15 @@
 #'
 #' Spawning many multisession workers (or fork-based backends) inside
 #' containers on NFS mounts can cause bus errors when R loads packages.
-#' Defaults to sequential; override with SNAP_FUTURE_WORKERS (integer >= 1).
-snap_set_future_plan <- function(workers = NULL) {
+#' Defaults to sequential; override with DAEDALUS_FUTURE_WORKERS (integer >= 1).
+daedalus_set_future_plan <- function(workers = NULL) {
   if (!requireNamespace("future", quietly = TRUE)) {
-    message("SNAP future plan unavailable: the future package is not installed")
+    message("DAEDALUS future plan unavailable: the future package is not installed")
     return(invisible(NA_integer_))
   }
 
   if (is.null(workers)) {
-    env_val <- Sys.getenv("SNAP_FUTURE_WORKERS", unset = "1")
+    env_val <- Sys.getenv("DAEDALUS_FUTURE_WORKERS", unset = "1")
     workers <- suppressWarnings(as.integer(env_val))
     if (is.na(workers) || workers < 1L) {
       workers <- 1L
@@ -34,7 +34,7 @@ snap_set_future_plan <- function(workers = NULL) {
   }
 
   message(sprintf(
-    "SNAP future plan: %s; requested workers: %d; available cores: %d; selected workers: %d",
+    "DAEDALUS future plan: %s; requested workers: %d; available cores: %d; selected workers: %d",
     plan_name,
     requested_workers,
     max_cores,
