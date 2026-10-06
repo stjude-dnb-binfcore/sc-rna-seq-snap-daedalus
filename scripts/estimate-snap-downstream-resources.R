@@ -218,6 +218,8 @@ populate_project_paths <- function(cfg, snap_root) {
   cfg$data_dir <- paths$data_dir
   cfg$metadata_dir <- paths$metadata_dir
   cfg$gene_markers_dir <- paths$gene_markers_dir
+  # Cell-types Rmd reads gene_markers_dir_annotation_module; keep in sync with resolved root.
+  cfg$gene_markers_dir_annotation_module <- paths$gene_markers_dir
   if (is.null(cfg$resource_profile)) cfg$resource_profile <- list()
   cfg$resource_profile$container_image <- paths$container_image
   cfg
