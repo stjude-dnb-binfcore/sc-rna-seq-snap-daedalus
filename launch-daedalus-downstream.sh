@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Root launcher for downstream snap workflow (upstream-analysis onwards) via WDL + Sprocket.
+# Root launcher for downstream daedalus workflow (upstream-analysis onwards) via WDL + Sprocket.
 #
 # Prerequisites:
 #   - FastQC and Cell Ranger complete under analyses/cellranger-analysis/
@@ -9,8 +9,8 @@ set -euo pipefail
 #   - Apptainer/Singularity image at rstudio_4.4.0_seurat_4.4.0_latest.sif
 #
 # Usage (from this directory):
-#   bash launch-snap-downstream.sh              # dry-run: validate static WDL + refresh YAML/inputs
-#   bash launch-snap-downstream.sh --submit     # submit to LSF via Sprocket
+#   bash launch-daedalus-downstream.sh              # dry-run: validate static WDL + refresh YAML/inputs
+#   bash launch-daedalus-downstream.sh --submit     # submit to LSF via Sprocket
 #
 # What happens automatically:
 #   1. Counts samples from project_metadata.tsv (or Cell Ranger output dirs)
@@ -21,7 +21,7 @@ set -euo pipefail
 #
 # Edit project_parameters.Config.yaml for biology parameters and workflow_profile toggles.
 
-SNAP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DAEDALUS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUBMIT=0
 EXTRA=()
 
@@ -41,7 +41,7 @@ if [[ "${SUBMIT}" -eq 0 && " ${EXTRA[*]:-} " != *" --dry-run "* ]]; then
   EXTRA+=(--dry-run)
 fi
 
-exec bash "${SNAP_ROOT}/scripts/launch-snap-sprocket.sh" \
-  --snap-root "${SNAP_ROOT}" \
+exec bash "${DAEDALUS_ROOT}/scripts/launch-daedalus-sprocket.sh" \
+  --daedalus-root "${DAEDALUS_ROOT}" \
   --update-yaml \
   "${EXTRA[@]}"

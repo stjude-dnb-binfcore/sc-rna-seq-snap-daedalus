@@ -4,7 +4,7 @@ set -euo pipefail
 # Launch the static daedalus_from_cellranger workflow (upstream onwards) via Sprocket.
 #
 # Usage:
-#   bash scripts/launch-snap-sprocket.sh [--snap-root PATH] [--no-update-yaml] [--yaml-in-place] [--dry-run] [--no-resource-report]
+#   bash scripts/launch-daedalus-sprocket.sh [--daedalus-root PATH] [--no-update-yaml] [--yaml-in-place] [--dry-run] [--no-resource-report]
 #
 # Sprocket call caching is always disabled so each launch runs the selected modules.
 #
@@ -14,7 +14,7 @@ set -euo pipefail
 # --yaml-in-place: overwrite master YAML (creates project_parameters.Config.yaml.orig first).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SNAP_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DAEDALUS_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 UPDATE_YAML=1
 YAML_IN_PLACE=0
 DRY_RUN=0
@@ -23,7 +23,7 @@ INPUTS=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --snap-root) SNAP_ROOT="$2"; shift 2 ;;
+    --daedalus-root) DAEDALUS_ROOT="$2"; shift 2 ;;
     --inputs) INPUTS="$2"; shift 2 ;;
     --update-yaml) UPDATE_YAML=1; shift ;;
     --no-update-yaml) UPDATE_YAML=0; shift ;;
@@ -31,21 +31,21 @@ while [[ $# -gt 0 ]]; do
     --dry-run) DRY_RUN=1; shift ;;
     --no-resource-report) COLLECT_RESOURCES=0; shift ;;
     -h|--help)
-      echo "Usage: bash scripts/launch-snap-sprocket.sh [--snap-root PATH] [--no-update-yaml] [--yaml-in-place] [--dry-run] [--no-resource-report]"
+      echo "Usage: bash scripts/launch-daedalus-sprocket.sh [--daedalus-root PATH] [--no-update-yaml] [--yaml-in-place] [--dry-run] [--no-resource-report]"
       exit 0 ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
 
 WORKFLOW_NAME="daedalus_from_cellranger"
-WORKFLOW="${SNAP_ROOT}/workflows/${WORKFLOW_NAME}.wdl"
-CONFIG="${SNAP_ROOT}/sprocket.toml"
-GENERATED_CONFIG="${SNAP_ROOT}/inputs/sprocket.generated.toml"
-GENERATED="${SNAP_ROOT}/inputs/generated_downstream.json"
-SPROCKET_INPUTS="${SNAP_ROOT}/inputs/sprocket_inputs.json"
-NOTIFY_SCRIPT="${SCRIPT_DIR}/snap-notify-email.sh"
+WORKFLOW="${DAEDALUS_ROOT}/workflows/${WORKFLOW_NAME}.wdl"
+CONFIG="${DAEDALUS_ROOT}/sprocket.toml"
+GENERATED_CONFIG="${DAEDALUS_ROOT}/inputs/sprocket.generated.toml"
+GENERATED="${DAEDALUS_ROOT}/inputs/generated_downstream.json"
+SPROCKET_INPUTS="${DAEDALUS_ROOT}/inputs/sprocket_inputs.json"
+NOTIFY_SCRIPT="${SCRIPT_DIR}/daedalus-notify-email.sh"
 
-mkdir -p "${SNAP_ROOT}/inputs"
+mkdir -p "${DAEDALUS_ROOT}/inputs"
 
 if [[ ! -f "${WORKFLOW}" ]]; then
   echo "Missing static WDL: ${WORKFLOW}" >&2
@@ -69,8 +69,8 @@ UPDATE_FLAG=()
 echo "==> Using static WDL: ${WORKFLOW}"
 
 echo "==> Estimating downstream resources"
-Rscript "${SCRIPT_DIR}/estimate-snap-downstream-resources.R" \
-  --snap-root "${SNAP_ROOT}" \
+Rscript "${SCRIPT_DIR}/estimate-daedalus-downstream-resources.R" \
+  --daedalus-root "${DAEDALUS_ROOT}" \
   --output "${GENERATED}" \
   "${UPDATE_FLAG[@]}"
 
@@ -83,10 +83,10 @@ if [[ ! -f "${INPUTS}" ]]; then
 fi
 
 echo "==> Rendering Sprocket config"
-bash "${SCRIPT_DIR}/render-sprocket-config.sh" "${SNAP_ROOT}" "${INPUTS}"
+bash "${SCRIPT_DIR}/render-sprocket-config.sh" "${DAEDALUS_ROOT}" "${INPUTS}"
 CONFIG="${GENERATED_CONFIG}"
-MONITOR_SCRIPT="${SCRIPT_DIR}/monitor-snap-task-emails.sh"
-RESOURCE_SCRIPT="${SCRIPT_DIR}/collect-snap-resource-usage.sh"
+MONITOR_SCRIPT="${SCRIPT_DIR}/monitor-daedalus-task-emails.sh"
+RESOURCE_SCRIPT="${SCRIPT_DIR}/collect-daedalus-resource-usage.sh"
 
 NOTIFY_EMAIL="$(
   grep -o '"daedalus_from_cellranger.notify_email"[[:space:]]*:[[:space:]]*"[^"]*"' "${INPUTS}" \
@@ -108,17 +108,17 @@ sprocket validate "${WORKFLOW}" @"${INPUTS}" --config "${CONFIG}"
 [[ "${DRY_RUN}" -eq 1 ]] && { echo "Dry run complete."; exit 0; }
 
 echo "==> Submitting downstream workflow"
-send_workflow_email "[snap] workflow: submitted" \
-  "Snap downstream workflow submitted at $(date -Is)\nProject: ${SNAP_ROOT}\nConfig: ${CONFIG}"
+send_workflow_email "[daedalus] workflow: submitted" \
+  "Daedalus downstream workflow submitted at $(date -Is)\nProject: ${DAEDALUS_ROOT}\nConfig: ${CONFIG}"
 
 set +e
 # Shared directories are passed as String paths, so call caching cannot detect changes to their contents.
-SPROCKET_RUN_FLAGS=(run "${WORKFLOW}" @"${INPUTS}" --config "${CONFIG}" --output-dir "${SNAP_ROOT}/out" --no-call-cache)
+SPROCKET_RUN_FLAGS=(run "${WORKFLOW}" @"${INPUTS}" --config "${CONFIG}" --output-dir "${DAEDALUS_ROOT}/out" --no-call-cache)
 sprocket "${SPROCKET_RUN_FLAGS[@]}" &
 SPROCKET_PID=$!
 
 bash "${MONITOR_SCRIPT}" \
-  --snap-root "${SNAP_ROOT}" \
+  --daedalus-root "${DAEDALUS_ROOT}" \
   --to "${NOTIFY_EMAIL}" \
   --watch-pid "${SPROCKET_PID}" &
 MONITOR_PID=$!
@@ -131,14 +131,14 @@ set -e
 
 if [[ "${COLLECT_RESOURCES}" -eq 1 ]]; then
   echo "==> Collecting per-module resource usage (requested vs actual)"
-  bash "${RESOURCE_SCRIPT}" --snap-root "${SNAP_ROOT}" --latest --json || true
+  bash "${RESOURCE_SCRIPT}" --daedalus-root "${DAEDALUS_ROOT}" --latest --json || true
 fi
 
 if [[ "${RUN_EXIT}" -eq 0 ]]; then
-  send_workflow_email "[snap] workflow: completed" \
-    "Snap downstream workflow completed successfully at $(date -Is)\nProject: ${SNAP_ROOT}"
+  send_workflow_email "[daedalus] workflow: completed" \
+    "Daedalus downstream workflow completed successfully at $(date -Is)\nProject: ${DAEDALUS_ROOT}"
 else
-  send_workflow_email "[snap] workflow: failed" \
-    "Snap downstream workflow failed (exit ${RUN_EXIT}) at $(date -Is)\nProject: ${SNAP_ROOT}\nCheck: ${SNAP_ROOT}/out/runs/${WORKFLOW_NAME}/"
+  send_workflow_email "[daedalus] workflow: failed" \
+    "Daedalus downstream workflow failed (exit ${RUN_EXIT}) at $(date -Is)\nProject: ${DAEDALUS_ROOT}\nCheck: ${DAEDALUS_ROOT}/out/runs/${WORKFLOW_NAME}/"
 fi
 exit "${RUN_EXIT}"

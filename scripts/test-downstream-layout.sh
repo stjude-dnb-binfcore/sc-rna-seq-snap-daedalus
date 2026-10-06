@@ -2,15 +2,15 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SNAP_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+DAEDALUS_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-echo "==> Snap root: ${SNAP_ROOT}"
+echo "==> Daedalus root: ${DAEDALUS_ROOT}"
 echo
 
 required=(
   sprocket.toml
-  scripts/estimate-snap-downstream-resources.R
-  scripts/launch-snap-sprocket.sh
+  scripts/estimate-daedalus-downstream-resources.R
+  scripts/launch-daedalus-sprocket.sh
   workflows/daedalus_from_cellranger.wdl
   tasks/post_cellranger_optional.wdl
   tasks/post_cellranger_required.wdl
@@ -23,7 +23,7 @@ required=(
 )
 
 for f in "${required[@]}"; do
-  if [[ -e "${SNAP_ROOT}/${f}" ]]; then
+  if [[ -e "${DAEDALUS_ROOT}/${f}" ]]; then
     echo "OK      ${f}"
   else
     echo "MISSING: ${f}"
@@ -34,25 +34,25 @@ done
 echo
 echo "==> Downstream modules in workflow"
 grep -hE "^task run_" \
-  "${SNAP_ROOT}/tasks/post_cellranger_required.wdl" \
-  "${SNAP_ROOT}/tasks/post_cellranger_optional.wdl" \
+  "${DAEDALUS_ROOT}/tasks/post_cellranger_required.wdl" \
+  "${DAEDALUS_ROOT}/tasks/post_cellranger_optional.wdl" \
   | sed 's/task /  /'
 
 echo
 echo "==> Static launcher contract"
-if ! grep -Fq 'WORKFLOW_NAME="daedalus_from_cellranger"' "${SNAP_ROOT}/scripts/launch-snap-sprocket.sh"; then
+if ! grep -Fq 'WORKFLOW_NAME="daedalus_from_cellranger"' "${DAEDALUS_ROOT}/scripts/launch-daedalus-sprocket.sh"; then
   echo "Launcher does not select the static daedalus_from_cellranger workflow" >&2
   exit 1
 fi
-if grep -Fq 'NO_CALL_CACHE' "${SNAP_ROOT}/scripts/launch-snap-sprocket.sh"; then
+if grep -Fq 'NO_CALL_CACHE' "${DAEDALUS_ROOT}/scripts/launch-daedalus-sprocket.sh"; then
   echo "Call caching is still conditional" >&2
   exit 1
 fi
-if ! grep -Eq '^SPROCKET_RUN_FLAGS=.*--no-call-cache' "${SNAP_ROOT}/scripts/launch-snap-sprocket.sh"; then
+if ! grep -Eq '^SPROCKET_RUN_FLAGS=.*--no-call-cache' "${DAEDALUS_ROOT}/scripts/launch-daedalus-sprocket.sh"; then
   echo "Launcher does not disable Sprocket call caching" >&2
   exit 1
 fi
-if grep -Fq 'generate-snap-wdl.R' "${SNAP_ROOT}/scripts/launch-snap-sprocket.sh"; then
+if grep -Fq 'generate-daedalus-wdl.R' "${DAEDALUS_ROOT}/scripts/launch-daedalus-sprocket.sh"; then
   echo "Launcher still generates WDL" >&2
   exit 1
 fi
@@ -82,4 +82,4 @@ for samples in 8 16 24; do
 done
 
 echo
-echo "Next: module load sprocket R && bash scripts/launch-snap-sprocket.sh --snap-root \"${SNAP_ROOT}\" --dry-run"
+echo "Next: module load sprocket R && bash scripts/launch-daedalus-sprocket.sh --daedalus-root \"${DAEDALUS_ROOT}\" --dry-run"
