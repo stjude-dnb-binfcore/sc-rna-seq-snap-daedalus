@@ -160,9 +160,8 @@ workflow daedalus_from_cellranger {
     }
 
     if (run_project_updates) {
-        call required.run_project_updates as project_updates
-            after upstream after integrative after cluster after contamination_removal
-            after cell_types after rshiny { input:
+        call required.run_project_updates as project_updates after upstream after integrative
+            after cluster after contamination_removal after cell_types after rshiny { input:
             snap_root = project_root,
             container_image = downstream_container,
             notify_email = notify_email,
