@@ -86,7 +86,7 @@ echo "==> Rendering Sprocket config"
 bash "${SCRIPT_DIR}/render-sprocket-config.sh" "${DAEDALUS_ROOT}" "${INPUTS}"
 CONFIG="${GENERATED_CONFIG}"
 MONITOR_SCRIPT="${SCRIPT_DIR}/monitor-daedalus-task-emails.sh"
-RESOURCE_SCRIPT="${SCRIPT_DIR}/collect-daedalus-resource-usage.sh"
+RESOURCE_SCRIPT="${SCRIPT_DIR}/collect-resource-usage.sh"
 
 NOTIFY_EMAIL="$(
   grep -o '"daedalus_from_cellranger.notify_email"[[:space:]]*:[[:space:]]*"[^"]*"' "${INPUTS}" \

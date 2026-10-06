@@ -95,7 +95,7 @@ Each run performs these steps in order:
 | 3. Check WDL | `sprocket check workflows/daedalus_from_cellranger.wdl` | — |
 | 4. Validate inputs | `sprocket validate workflows/daedalus_from_cellranger.wdl @inputs/sprocket_inputs.json --config inputs/sprocket.generated.toml` | — |
 | 5. Submit (if not dry-run) | `sprocket run ... --output-dir out --no-call-cache` | LSF jobs |
-| 6. Collect resource usage | `scripts/collect-daedalus-resource-usage.sh --latest --json` | `out/resource_usage/` |
+| 6. Collect resource usage | `scripts/collect-resource-usage.sh --latest --json` | `out/resource_usage/` |
 
 The resource estimator:
 
@@ -255,7 +255,7 @@ To change WDL structure, edit `workflows/daedalus_from_cellranger.wdl`, `tasks/p
 | `daedalus-notify-email.sh` | Sends workflow/module email notifications (login node) |
 | `daedalus_read_config.R` | Helper used by R modules to load YAML config |
 | `daedalus-read-config.sh` | Bash helper for shell scripts (same config precedence as `daedalus_read_config.R`) |
-| `collect-daedalus-resource-usage.sh` | Post-run LSF resource report (requested vs actual per module) |
+| `collect-resource-usage.sh` | Post-run LSF resource report (requested vs actual per module) |
 | `test-downstream-layout.sh` | Sanity-check that expected WDL/inputs files exist |
 
 Root launcher (one level up): `launch-daedalus-downstream.sh`
@@ -264,7 +264,7 @@ Root launcher (one level up): `launch-daedalus-downstream.sh`
 
 ## Resource usage (requested vs actual)
 
-After each Sprocket run, the launcher calls `scripts/collect-daedalus-resource-usage.sh` to compare **requested** LSF resources (from task `inputs.json`) with **actual** usage from LSF (`bjobs`).
+After each Sprocket run, the launcher calls `scripts/collect-resource-usage.sh` to compare **requested** LSF resources (from task `inputs.json`) with **actual** usage from LSF (`bjobs`).
 
 Reports are written to:
 
@@ -279,10 +279,10 @@ Key columns: `requested_cpu`, `requested_memory_gb`, `actual_max_memory_gb`, `me
 
 ```bash
 # Latest Sprocket run
-bash scripts/collect-daedalus-resource-usage.sh --daedalus-root . --latest --json
+bash scripts/collect-resource-usage.sh --daedalus-root . --latest --json
 
 # Specific run
-bash scripts/collect-daedalus-resource-usage.sh --daedalus-root . --run-id 2026-08-31_234355266651904
+bash scripts/collect-resource-usage.sh --daedalus-root . --run-id 2026-08-31_234355266651904
 ```
 
 **Requested resources only** (pre-run estimates, not actual usage):
