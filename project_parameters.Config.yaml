@@ -1,22 +1,22 @@
 # the following parameters are the same across the project and might be needed in more than one module #
-root_dir: "/sc-rna-seq-snap" # Absolute path to the main dir of the project where GitHub repo lives
-data_dir: "/sc-rna-seq-snap/analyses/cellranger-analysis/results/02_cellranger_count/DefaultParameters" # Absolute path to data dir of the project with CellRanger output results. Options: "DefaultParameters", "ForcedCells8000Parameters", or else. 
-metadata_dir: "/sc-rna-seq-snap/data/project_metadata" # Absolute path to metadata dir of the project. File name always named as: `project_metadata.tsv`.
+root_dir: "/sc-rna-seq-snap-daedalus" # Absolute path to the main dir of the project where GitHub repo lives
+data_dir: "/sc-rna-seq-snap-daedalus/analyses/cellranger-analysis/results/02_cellranger_count/DefaultParameters" # Absolute path to data dir of the project with CellRanger output results. Options: "DefaultParameters", "ForcedCells8000Parameters", or else. 
+metadata_dir: "/sc-rna-seq-snap-daedalus/data/project_metadata/" # Absolute path to metadata dir of the project. File name always named as: `project_metadata.tsv`.
 metadata_file: "project_metadata.tsv" # Options: "project_metadata.tsv" (default) or name as user wants. It needs to be in `tsv` format. It can include one or more samples, as long as it contains at least the following columns in this exact order: `ID`, `SAMPLE`, and `FASTQ`. The `ID` column must contain unique values. Additional metadata columns can be added and arranged as needed by the user (though not required). For samples with multiple technical replicates, list all associated FASTQ file paths in the same row, using commas to separate each path.
 genome_name: "GRCm39" # define genome reference and versioning. Options: (1) human: "GRCh38" and "hg19"; (2) mouse: "GRCm39", "mm10", and "mm9"; and (3) dual index genomes: "GRCh38ANDGRCm39", "GRCh38_mm10", and "GRCh38_mm9".
-PROJECT_NAME: "PROJECT_NAME"
-PI_NAME: "PI_NAME"
-TASK_ID: "NA"
+PROJECT_NAME: "daedalus-project-post-hackathon-testing-sc-rna-seq-snap-daedalus"
+PI_NAME: "Michael A. Dyer, PhD"
+TASK_ID: "Testing cohort: Victoria-Knockout"
 PROJECT_LEAD_NAME: "NA"
 DEPARTMENT: "Developmental Neurobiology"
 LEAD_ANALYSTS: "Antonia Chroni, PhD"
 GROUP_LEAD: "Cody A. Ramirez, PhD"
 CONTACT_EMAIL: "antonia.chroni@stjude.org"
 PIPELINE: "Standard sc-/sn-RNA-Seq Analysis in 10X Genomics data"
-START_DATE: "10/15/2024"
-COMPLETION_DATE: "ONGOING"
+START_DATE: "09/28/2026"
+COMPLETION_DATE: "NA"
 
-# Resource profile for WDL/Sprocket orchestration.
+# Resource profile for WDL/Sprocket orchestration (Phase 1+).
 # `scripts/estimate-snap-downstream-resources.R --update-yaml` refreshes these from metadata + Cell Ranger.
 resource_profile:
   num_samples: null                      # null = count from Cell Ranger / project_metadata.tsv
@@ -24,12 +24,11 @@ resource_profile:
   total_estimated_cells: null            # computed from Cell Ranger totals when available
   resource_tier: "default"               # default | large | xlarge
   scale_factor: 1
-  container_image: "/sc-rna-seq-snap/rstudio_4.4.0_seurat_4.4.0_latest.sif"                  # null = <root_dir>/rstudio_4.4.0_seurat_4.4.0_latest.sif
+  container_image: "./sc-rna-seq-snap-daedalus/rstudio_4.4.0_seurat_4.4.0_latest.sif"                  # null = <root_dir>/rstudio_4.4.0_seurat_4.4.0_latest.sif
 
 # Which downstream modules to run via WDL/Sprocket (all optional).
-# Modules run in parallel as much as possible.
-# If a producer module is disabled, its required output must already exist.
-# Example - upstream only: run_upstream: true, all others false.
+# Toggle any combination; each enabled module waits on the last completed step.
+# Example — upstream only: run_upstream: true, all others false.
 workflow_profile:
   run_upstream: true
   run_integrative: true
@@ -39,25 +38,24 @@ workflow_profile:
   run_clone_phylogeny: false
   run_de_go: false
   run_rshiny: false
+  run_project_updates: false
 
-  
 # the following parameters are set up as default values and/or are specific for the following modules: 
 # `./analyses/fastqc-analysis`
 # FASTQ paths to the fastqc files with format: `path1/*R2*.fastq.gz` are extracted from the `metadata_dir`.
 # No need to manually define variables
 
 # `./analyses/cellranger-analysis`
-genome_reference_path: "./" # Absolute path to genome reference to be used for the `cellranger-analysis` module
+genome_reference_path: "./cellranger-sc-rna-seq/2024-A/mus_musculus/GRCm39/downloads/refdata-gex-GRCm39-2024-A" # Absolute path to genome reference to be used for the `cellranger-analysis` module
 cellranger_parameters: "DefaultParameters" # Options: "DefaultParameters", "ForcedCells8000Parameters", or else
 genome_name_cellranger: "GRCm39" # define the genome of preference for dual genomes. In case for single genomes, please use the same as used for `genome_name`.
-create_bam_value: "true" # Options: "true" (default) or "false". For non-human experiments, we recommend setting this to 'false' to reduce memory usage per project.
+create_bam_value: "false" # Options: "true" (default) or "false". For non-human experiments, we recommend setting this to 'false' to reduce memory usage per project.
 # Define the sample ID prefix(es) used in this project.
 # Sample IDs should follow a format like: PREFIX001 (e.g., DYE001, ABC002).
 # You can specify multiple prefixes if your project uses more than one.
 sample_prefix: 
-  - DYE
-  - ABC-
-  - XYZ_
+  - DYE_
+  
 
 # `./analyses/upstream-analysis`
 print_pdf_seurat_multiple_samples: "YES" # Options: "YES" (default ALWAYS), for `02B_run_seurat_qc_multiple_samples.R`
@@ -75,7 +73,7 @@ nfeatures_value: 3000 # define number of variable features
 prefix: "lognorm" # create label based on the normalization method used
 use_miQC: "NO" # Options: "YES" or "NO". Use of miQC R package or not; see `README.md` file for more information.
 use_only_step1: "NO" # Options: "YES" or "NO". Use of both or only first step for filtering low quality cells; see `README.md` file for more information.
-condition_value1: "Disease" # Use discrete values. Min #conditions per project: 1 and Max #conditions per project: 3. To use for visualization purposes and split UMAPs. Value to be extracted from column name in `project_metadata.tsv` file.
+condition_value1: "condition" # Use discrete values. Min #conditions per project: 1 and Max #conditions per project: 3. To use for visualization purposes and split UMAPs. Value to be extracted from column name in `project_metadata.tsv` file. 
 condition_value2: NULL # Use discrete values. Min #conditions per project: 1 and Max #conditions per project: 3. To use for visualization purposes and split UMAPs. Value to be extracted from column name in `project_metadata.tsv` file. 
 condition_value3: NULL # Use discrete values. Min #conditions per project: 1 and Max #conditions per project: 3. To use for visualization purposes and split UMAPs. Value to be extracted from column name in `project_metadata.tsv` file. 
 
@@ -142,7 +140,7 @@ n_value_find_markers: 10 # number of top genes to explore
 future_globals_value_clustering: 400 # Default. Adjust based on dataset size and available memory. See `future_globals_value_upstream` in the `upstream-analysis` module for more details.
 
 # `./analyses/cell-contamination-removal-analysis`
-keep_clusters_contamination_module: [1, 2, 3, 4, 5, 7, 8, 9, 10, 12, 13, 15, 16]
+keep_clusters_contamination_module: [1, 2, 3, 4]
 assay_contamination_module: "RNA" # Options: "RNA" (default) or "RNA_SoupX"
 future_globals_value_contamination: 400 # Default. Adjust based on dataset size and available memory. See `future_globals_value_upstream` in the `upstream-analysis` module for more details.
 
@@ -175,10 +173,10 @@ reference_assay_annotation_module: "RNA"  # Options: "RNA" (default) or "RNA_Sou
 # The broad/fine SingleR notebooks expect colData columns `label.main` and `label.fine` (as in HumanPrimaryCellAtlas).
 # Allowed values (must match allowlist in that R script): HumanPrimaryCellAtlasData, BlueprintEncodeData,
 # DatabaseImmuneCellExpressionData, ImmGenData, MonacoImmuneData, MouseRNAseqData, NovershternHematopoieticData
-singler_celldex_reference: "HumanPrimaryCellAtlasData"
+singler_celldex_reference: "MouseRNAseqData"
 
-gene_markers_dir_annotation_module: "./" # path to gene markers dir
-gene_markers_file_name_annotation_module: "<filename>.tsv" # File name with the gene markers. It needs to be in `tsv` format. Please ensure cell type names exist and match the ones in the `.figures/palettes/cell_types_palette.tsv`.
+gene_markers_dir_annotation_module: "/sc-rna-seq-snap-daedalus/data/input" # path to gene markers dir
+gene_markers_file_name_annotation_module: "retinal_cell_type_top50_gene_markers-2-UPDATED.tsv" # File name with the gene markers. It needs to be in `tsv` format. Please ensure cell type names exist and match the ones in the `.figures/palettes/cell_types_palette.tsv`.
 # Options: "all" (for using singler, a list of gene markers and reference dataset), 
 #           "singler" (for using only singler method for both broad and fine annotation), 
 #           "singler&gene_markers" (for using SingleR and a list of gene markers),  
@@ -186,7 +184,7 @@ gene_markers_file_name_annotation_module: "<filename>.tsv" # File name with the 
 #           "gene_markers&reference" (for using a list of gene markers and reference dataset)
 #           "gene_markers" (for using a list of gene markers)
 #           "reference" (for using a reference dataset)
-method_annotation_module: "singler" 
+method_annotation_module: "gene_markers" 
 
 ct_palette_file_broad: "cell_types_palette.tsv"  # File name with the cell types. It needs to be in `tsv` format. Please ensure cell type names exist and match the ones in the `.figures/palettes/cell_types_palette.tsv`. Alternatively, create a tsv file with your own palette and add it to the `.figures/palettes/` folder. 
 ct_palette_file_fine: "cell_types_palette.tsv" # File name with the gene markers. It needs to be in `tsv` format. Please ensure cell type names exist and match the ones in the `.figures/palettes/cell_types_palette.tsv`. Alternatively, create a tsv file with your own palette and add it to the `.figures/palettes/` folder.
@@ -231,4 +229,6 @@ future_globals_value_dego: 200 # Default. Adjust based on dataset size and avail
 # `./analyses/project-updates`
 results_filepath: "./" # Absolute path to the dir where local fork repo lives
 mac_results_filepath: "./" # Absolute path to the dir where local fork repo lives
-cohort_value: "/NAME_OF_FORK_REPO>"  # Name of the local fork repo
+cohort_value: "."  # Name of the local fork repo
+
+
