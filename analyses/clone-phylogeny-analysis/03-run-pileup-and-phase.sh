@@ -15,17 +15,17 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 #######################################################
 # Read config: WDL/Sprocket uses inputs/project_parameters.generated.yaml
-# (SNAP_CONFIG_FILE is set by the static WDL tasks). Interactive, LSF, and
+# (DAEDALUS_CONFIG_FILE is set by the static WDL tasks). Interactive, LSF, and
 # launch_full_pipeline.sh use project_parameters.Config.yaml.
-SNAP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-# shellcheck source=../../scripts/snap-read-config.sh
-source "${SNAP_ROOT}/scripts/snap-read-config.sh"
-snap_log_config_file
+DAEDALUS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=../../scripts/daedalus-read-config.sh
+source "${DAEDALUS_ROOT}/scripts/daedalus-read-config.sh"
+daedalus_log_config_file
 
-root_dir="$(snap_yaml_get root_dir)"
+root_dir="$(daedalus_yaml_get root_dir)"
 echo "${root_dir}"
 
-cellranger_parameters="$(snap_yaml_get cellranger_parameters)"
+cellranger_parameters="$(daedalus_yaml_get cellranger_parameters)"
 echo "$cellranger_parameters"
 
 module_dir=${root_dir}/analyses/clone-phylogeny-analysis
@@ -45,7 +45,7 @@ input_dir=${module_dir}/results/02-prepare-files-for-pileup-and-phase
 mkdir -p ${input_dir}/sample_barcode
 
 # Define array with samples (from config or project_metadata.tsv)
-mapfile -t sample < <(snap_sample_ids)
+mapfile -t sample < <(daedalus_sample_ids)
 
 
 ##################
