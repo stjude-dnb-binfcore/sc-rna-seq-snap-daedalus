@@ -13,18 +13,16 @@ suppressPackageStartupMessages({
 
 
 #################################################################################
-# load config file
-configFile <- paste0("../../project_parameters.Config.yaml")
-if (!file.exists(configFile)){
-  cat("\n Error: configuration file not found:", configFile)
-  stop("Exit...")}
-
-# read `yaml` file defining the `params` of the project and strategy analysis
-yaml <- read_yaml(configFile)
+# Load config: WDL/Sprocket uses inputs/project_parameters.generated.yaml
+# (SNAP_CONFIG_FILE is set by the static WDL tasks). Interactive, LSF, and
+# launch_full_pipeline.sh use project_parameters.Config.yaml.
+snap_root <- normalizePath("../..", winslash = "/")
+source(file.path(snap_root, "scripts", "snap_read_config.R"))
+yaml <- snap_load_project_config(snap_root)
 
 # Set up directories and paths to root_dir and analysis_dir
 root_dir <- yaml$root_dir
-analysis_dir <- file.path(root_dir, "analyses", "project-updates") 
+analysis_dir <- file.path(root_dir, "analyses", "project-updates")
 metadata_dir <- yaml$metadata_dir
 metadata_file <- yaml$metadata_file
 
@@ -63,6 +61,11 @@ render("01-generate-project-report.Rmd", output_file = output_file,
        params = list(
               cellranger_parameters = yaml$cellranger_parameters,
               root_dir = yaml$root_dir,
+              #metadata_dir = yaml$metadata_dir,
+              #metadata_file = yaml$metadata_file,
+              #genome_reference = yaml$genome_name,
+              #results_filepath = yaml$results_filepath,
+              #cohort_value = yaml$cohort_value,
               PROJECT_NAME = yaml$PROJECT_NAME,
               PI_NAME = yaml$PI_NAME,
               TASK_ID = yaml$TASK_ID,
@@ -71,7 +74,7 @@ render("01-generate-project-report.Rmd", output_file = output_file,
               LEAD_ANALYSTS = yaml$LEAD_ANALYSTS,
               GROUP_LEAD = yaml$GROUP_LEAD,
               CONTACT_EMAIL = yaml$CONTACT_EMAIL,
-              PIPELINE = yaml$PIPELINE, 
+              PIPELINE = yaml$PIPELINE,
               START_DATE = yaml$START_DATE,
               COMPLETION_DATE = yaml$COMPLETION_DATE))
 #################################################################################
