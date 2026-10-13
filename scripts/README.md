@@ -12,12 +12,12 @@ Before launching downstream:
 2. **Sample metadata** exists at `data/project_metadata/project_metadata.tsv`.
 3. Metadata `ID` values exactly match the Cell Ranger sample directory names.
 4. **Apptainer/Singularity image** is configured at `resource_profile.container_image` in `project_parameters.Config.yaml` (default: `<root_dir>/rstudio_4.4.0_seurat_4.4.0_latest.sif`).
-5. You are on a St. Jude HPC node with **Sprocket**, **R**, and **Apptainer/Singularity** available.
+5. You are on a St. Jude HPC node with **Sprocket**, **R**, and **Apptainer/Singularity** available. Please note that a version of Singularity is installed by default on all the cluster nodes at St Jude HPC. Otherwise the user needs to ensure and load Singularity module.
 
 ## Load modules
 
 ```bash
-module load sprocket R singularity
+module load sprocket R
 ```
 
 ## Quick start
@@ -96,7 +96,7 @@ Each run performs these steps in order:
 | 3. Check WDL | `sprocket check workflows/daedalus_from_cellranger.wdl` | — |
 | 4. Validate inputs | `sprocket validate workflows/daedalus_from_cellranger.wdl @inputs/sprocket_inputs.json --config inputs/sprocket.generated.toml` | — |
 | 5. Submit (if not dry-run) | `sprocket run ... --output-dir out --no-call-cache` | LSF jobs |
-| 6. Collect resource usage | `scripts/collect-snap-resource-usage.sh --latest --json` | `out/resource_usage/` |
+| 6. Collect resource usage | `scripts/collect-resource-usage.sh --latest --json` | `out/resource_usage/` |
 
 The resource estimator:
 
@@ -256,7 +256,8 @@ To change WDL structure, edit `workflows/daedalus_from_cellranger.wdl`, `tasks/p
 | `snap-notify-email.sh` | Sends workflow/module email notifications (login node) |
 | `snap_read_config.R` | Helper used by R modules to load YAML config |
 | `snap-read-config.sh` | Bash helper for shell scripts (same config precedence as `snap_read_config.R`) |
-| `collect-snap-resource-usage.sh` | Post-run LSF resource report (requested vs actual per module) |
+| `collect-resource-usage.sh` | Post-run LSF resource report (requested vs actual per module) |
+| `extract-resource-usage.sh` | Convenience wrapper: `--latest --json` into `out/resource_usage/` |
 | `test-downstream-layout.sh` | Sanity-check that expected WDL/inputs files exist |
 
 Root launcher (one level up): `launch-snap-downstream.sh`
@@ -265,7 +266,7 @@ Root launcher (one level up): `launch-snap-downstream.sh`
 
 ## Resource usage (requested vs actual)
 
-After each Sprocket run, the launcher calls `scripts/collect-snap-resource-usage.sh` to compare **requested** LSF resources (from task `inputs.json`) with **actual** usage from LSF (`bjobs`).
+After each Sprocket run, the launcher calls `scripts/collect-resource-usage.sh` to compare **requested** LSF resources (from task `inputs.json`) with **actual** usage from LSF (`bjobs`).
 
 Reports are written to:
 
@@ -279,11 +280,14 @@ Key columns: `requested_cpu`, `requested_memory_gb`, `actual_max_memory_gb`, `me
 **Run manually** (e.g. after an older run):
 
 ```bash
-# Latest Sprocket run
-bash scripts/collect-snap-resource-usage.sh --snap-root . --latest --json
+# Latest Sprocket run (writes out/resource_usage/resource_usage_<run_id>.{csv,json})
+bash scripts/extract-resource-usage.sh
 
-# Specific run
-bash scripts/collect-snap-resource-usage.sh --snap-root . --run-id 2026-08-31_234355266651904
+# Copy reports elsewhere (e.g. ROI analysis input/)
+bash scripts/extract-resource-usage.sh --export-dir /path/to/destination
+
+# Specific run / workflow folder
+bash scripts/collect-resource-usage.sh --snap-root . --workflow daedalus_from_cellranger --run-id 2026-08-31_234355266651904 --json
 ```
 
 **Requested resources only** (pre-run estimates, not actual usage):
