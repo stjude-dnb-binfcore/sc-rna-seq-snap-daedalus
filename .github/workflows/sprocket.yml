@@ -4,7 +4,7 @@ on:
     paths:
       - ".github/workflows/sprocket.yml"
       - "sprocket.local.toml"
-      - "launch-snap-downstream.sh"
+      - "launch-daedalus-downstream.sh"
       - "scripts/**"
       - "tasks/**"
       - "test/fixtures/**"
@@ -15,7 +15,7 @@ on:
     paths:
       - ".github/workflows/sprocket.yml"
       - "sprocket.local.toml"
-      - "launch-snap-downstream.sh"
+      - "launch-daedalus-downstream.sh"
       - "scripts/**"
       - "tasks/**"
       - "test/fixtures/**"

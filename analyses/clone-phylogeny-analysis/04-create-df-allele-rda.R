@@ -16,11 +16,11 @@ suppressPackageStartupMessages({
 
 #################################################################################
 # Load config: WDL/Sprocket uses inputs/project_parameters.generated.yaml
-# (SNAP_CONFIG_FILE is set by the static WDL tasks). Interactive, LSF, and
+# (DAEDALUS_CONFIG_FILE is set by the static WDL tasks). Interactive, LSF, and
 # launch_full_pipeline.sh use project_parameters.Config.yaml.
-snap_root <- normalizePath("../..", winslash = "/")
-source(file.path(snap_root, "scripts", "snap_read_config.R"))
-yaml <- snap_load_project_config(snap_root)
+daedalus_root <- normalizePath("../..", winslash = "/")
+source(file.path(daedalus_root, "scripts", "daedalus_read_config.R"))
+yaml <- daedalus_load_project_config(daedalus_root)
 
 #################################################################################
 # Set up directories and paths to file Inputs/Outputs

@@ -1,13 +1,13 @@
 #!/usr/bin/env Rscript
 ################################################################################
-# estimate-snap-downstream-resources.R
+# estimate-daedalus-downstream-resources.R
 #
-# Estimate LSF / future.globals resources for snap modules from upstream onwards.
+# Estimate LSF / future.globals resources for modules from upstream onwards.
 # Baseline: 8 samples x 50,000 cells.
 #
 # Usage:
-#   Rscript scripts/estimate-snap-downstream-resources.R \
-#     --snap-root /path/to/sc-rna-seq-snap \
+#   Rscript scripts/estimate-daedalus-downstream-resources.R \
+#     --daedalus-root /path/to/pipeline \
 #     --output inputs/generated_downstream.json \
 #     [--update-yaml] \
 #     [--yaml-in-place]
@@ -29,7 +29,7 @@ suppressPackageStartupMessages({
 }
 
 #' Sprocket lsf_apptainer treats bare paths as docker:// URIs. Local images need file://.
-sprocket_container_uri <- function(image, snap_root) {
+sprocket_container_uri <- function(image, daedalus_root) {
   if (is.null(image) || !nzchar(image)) return(image)
   if (grepl("^[a-zA-Z][a-zA-Z0-9+.-]*://", image) && !startsWith(image, "file://")) {
     return(image)
@@ -43,7 +43,7 @@ sprocket_container_uri <- function(image, snap_root) {
     grepl("\\.sif$", path, ignore.case = TRUE)
   if (!is_file_path) return(image)
 
-  if (!startsWith(path, "/")) path <- file.path(snap_root, path)
+  if (!startsWith(path, "/")) path <- file.path(daedalus_root, path)
   path <- normalizePath(path, winslash = "/", mustWork = FALSE)
   if (!file.exists(path)) {
     stop("Container image does not exist: ", path)
@@ -53,7 +53,7 @@ sprocket_container_uri <- function(image, snap_root) {
 
 parse_args <- function(args) {
   out <- list(
-    snap_root = NULL,
+    daedalus_root = NULL,
     output = NULL,
     update_yaml = FALSE,
     yaml_in_place = FALSE,
@@ -63,7 +63,7 @@ parse_args <- function(args) {
   i <- 1L
   while (i <= length(args)) {
     key <- args[[i]]
-    if (key == "--snap-root") { i <- i + 1L; out$snap_root <- args[[i]] }
+    if (key == "--daedalus-root") { i <- i + 1L; out$daedalus_root <- args[[i]] }
     else if (key == "--output") { i <- i + 1L; out$output <- args[[i]] }
     else if (key == "--yaml-output") { i <- i + 1L; out$yaml_output <- args[[i]] }
     else if (key == "--update-yaml") out$update_yaml <- TRUE
@@ -72,7 +72,7 @@ parse_args <- function(args) {
     else stop("Unknown argument: ", key)
     i <- i + 1L
   }
-  if (is.null(out$snap_root)) stop("--snap-root is required")
+  if (is.null(out$daedalus_root)) stop("--daedalus-root is required")
   out
 }
 
@@ -180,10 +180,10 @@ estimate_cells_from_cellranger <- function(data_dir) {
   )
 }
 
-resolve_project_paths <- function(cfg, snap_root) {
-  snap_root <- normalizePath(snap_root, winslash = "/", mustWork = TRUE)
-  root_dir <- cfg$root_dir %||% snap_root
-  if (!startsWith(root_dir, "/")) root_dir <- file.path(snap_root, root_dir)
+resolve_project_paths <- function(cfg, daedalus_root) {
+  daedalus_root <- normalizePath(daedalus_root, winslash = "/", mustWork = TRUE)
+  root_dir <- cfg$root_dir %||% daedalus_root
+  if (!startsWith(root_dir, "/")) root_dir <- file.path(daedalus_root, root_dir)
   root_dir <- normalizePath(root_dir, winslash = "/", mustWork = FALSE)
   params <- cfg$cellranger_parameters %||% "DefaultParameters"
   data_dir <- cfg$data_dir %||% file.path(
@@ -199,7 +199,7 @@ resolve_project_paths <- function(cfg, snap_root) {
   }
 
   list(
-    snap_root = snap_root,
+    daedalus_root = daedalus_root,
     root_dir = root_dir,
     data_dir = normalizePath(data_dir, winslash = "/", mustWork = FALSE),
     metadata_dir = normalizePath(metadata_dir, winslash = "/", mustWork = FALSE),
@@ -212,12 +212,14 @@ resolve_project_paths <- function(cfg, snap_root) {
 }
 
 #' Resolve configured project paths and write them to the generated YAML.
-populate_project_paths <- function(cfg, snap_root) {
-  paths <- resolve_project_paths(cfg, snap_root)
+populate_project_paths <- function(cfg, daedalus_root) {
+  paths <- resolve_project_paths(cfg, daedalus_root)
   cfg$root_dir <- paths$root_dir
   cfg$data_dir <- paths$data_dir
   cfg$metadata_dir <- paths$metadata_dir
   cfg$gene_markers_dir <- paths$gene_markers_dir
+  # Cell-types Rmd reads gene_markers_dir_annotation_module; keep in sync with resolved root.
+  cfg$gene_markers_dir_annotation_module <- paths$gene_markers_dir
   if (is.null(cfg$resource_profile)) cfg$resource_profile <- list()
   cfg$resource_profile$container_image <- paths$container_image
   cfg
@@ -233,8 +235,45 @@ workflow_toggles <- function(cfg) {
     run_cell_types = isTRUE(wp$run_cell_types %||% FALSE),
     run_clone_phylogeny = isTRUE(wp$run_clone_phylogeny %||% FALSE),
     run_de_go = isTRUE(wp$run_de_go %||% FALSE),
-    run_rshiny = isTRUE(wp$run_rshiny %||% FALSE)
+    run_rshiny = isTRUE(wp$run_rshiny %||% FALSE),
+    run_project_updates = isTRUE(wp$run_project_updates %||% FALSE)
   )
+}
+
+#' Map workflow_profile toggles to resource keys (matches DownstreamResources in WDL).
+WORKFLOW_MODULE_RESOURCES <- list(
+  list(toggle = "run_upstream", label = "upstream", future = TRUE),
+  list(toggle = "run_integrative", label = "integrative", future = TRUE),
+  list(toggle = "run_cluster", label = "cluster", future = TRUE),
+  list(toggle = "run_contamination_removal", label = "contamination_removal", prefix = "contamination", future = TRUE),
+  list(toggle = "run_cell_types", label = "cell_types", future = FALSE),
+  list(toggle = "run_clone_phylogeny", label = "clone_phylogeny", future = FALSE),
+  list(toggle = "run_de_go", label = "de_go", future = TRUE),
+  list(toggle = "run_rshiny", label = "rshiny", future = FALSE),
+  list(toggle = "run_project_updates", label = "project_updates", future = FALSE)
+)
+
+print_workflow_profile_resources <- function(toggles, res) {
+  enabled <- Filter(function(m) isTRUE(toggles[[m$toggle]]), WORKFLOW_MODULE_RESOURCES)
+  if (!length(enabled)) {
+    cat("  workflow_profile: (no downstream modules enabled)\n")
+    return(invisible(NULL))
+  }
+
+  labels <- vapply(enabled, function(m) m$label, character(1L))
+  cat("  workflow_profile enabled:", paste(labels, collapse = ", "), "\n")
+  for (m in enabled) {
+    prefix <- m$prefix %||% m$label
+    cpu <- res[[paste0(prefix, "_cpu")]]
+    mem <- res[[paste0(prefix, "_memory_gb")]]
+    if (isTRUE(m$future)) {
+      fut <- res[[paste0(prefix, "_future_globals_gib")]]
+      cat(sprintf("  %s: %s cpu %s GB future: %s GiB\n", m$label, cpu, mem, fut))
+    } else {
+      cat(sprintf("  %s: %s cpu %s GB\n", m$label, cpu, mem))
+    }
+  }
+  invisible(NULL)
 }
 
 LSF_MEMORY_HEADROOM <- 1.2
@@ -272,11 +311,20 @@ compute_resources <- function(num_samples, estimated_cells_per_sample, total_cel
     cluster_cpu = if (scale <= 1L) 4L else if (scale <= 2L) 8L else 12L,
     cluster_memory_gb = 48L + (cell_scale - 1L) * 16L,
     cluster_future_globals_gib = 400L + (cell_scale - 1L) * 100L,
+    contamination_cpu = 8L,
     contamination_memory_gb = 96L + (cell_scale - 1L) * 24L,
     contamination_future_globals_gib = 400L + (cell_scale - 1L) * 100L,
+    cell_types_cpu = 4L,
     cell_types_memory_gb = 64L + (cell_scale - 1L) * 16L,
+    clone_phylogeny_cpu = 16L,
+    clone_phylogeny_memory_gb = 30L,
+    de_go_cpu = 4L,
     de_go_memory_gb = 32L + (cell_scale - 1L) * 8L,
-    de_go_future_globals_gib = 200L + (cell_scale - 1L) * 50L
+    de_go_future_globals_gib = 200L + (cell_scale - 1L) * 50L,
+    rshiny_cpu = 4L,
+    rshiny_memory_gb = 30L,
+    project_updates_cpu = 1L,
+    project_updates_memory_gb = 4L
   )
 
   for (key in grep("_memory_gb$", names(res), value = TRUE)) {
@@ -310,7 +358,7 @@ build_cellranger_inputs <- function(data_dir, cellranger) {
 }
 
 build_sprocket_inputs <- function(
-  snap_root,
+  daedalus_root,
   container_image,
   notify_email,
   toggles,
@@ -319,7 +367,7 @@ build_sprocket_inputs <- function(
   list(
     `daedalus_from_cellranger.cellranger_inputs` = cellranger_inputs,
     `daedalus_from_cellranger.resource_estimator_container` = container_image,
-    `daedalus_from_cellranger.project_root` = snap_root,
+    `daedalus_from_cellranger.project_root` = daedalus_root,
     `daedalus_from_cellranger.downstream_container` = container_image,
     `daedalus_from_cellranger.notify_email` = notify_email,
     `daedalus_from_cellranger.run_upstream` = toggles$run_upstream,
@@ -329,16 +377,17 @@ build_sprocket_inputs <- function(
     `daedalus_from_cellranger.run_cell_types` = toggles$run_cell_types,
     `daedalus_from_cellranger.run_clone_phylogeny` = toggles$run_clone_phylogeny,
     `daedalus_from_cellranger.run_de_go` = toggles$run_de_go,
-    `daedalus_from_cellranger.run_rshiny` = toggles$run_rshiny
+    `daedalus_from_cellranger.run_rshiny` = toggles$run_rshiny,
+    `daedalus_from_cellranger.run_project_updates` = toggles$run_project_updates
   )
 }
 
 main <- function() {
   args <- parse_args(commandArgs(trailingOnly = TRUE))
-  snap_root <- normalizePath(args$snap_root, mustWork = TRUE)
-  config_path <- file.path(snap_root, "project_parameters.Config.yaml")
+  daedalus_root <- normalizePath(args$daedalus_root, mustWork = TRUE)
+  config_path <- file.path(daedalus_root, "project_parameters.Config.yaml")
   cfg <- read_yaml(config_path)
-  paths <- resolve_project_paths(cfg, snap_root)
+  paths <- resolve_project_paths(cfg, daedalus_root)
 
   metadata_path <- file.path(paths$metadata_dir, cfg$metadata_file %||% "project_metadata.tsv")
   cellranger <- estimate_cells_from_cellranger(paths$data_dir)
@@ -392,12 +441,10 @@ main <- function() {
       cat("    ", nm, ":", cellranger$per_sample[[nm]], "cells\n")
     }
   }
-  cat("  upstream:", res$upstream_cpu, "cpu", res$upstream_memory_gb, "GB future:", res$upstream_future_globals_gib, "GiB\n")
-  cat("  integrative:", res$integrative_cpu, "cpu", res$integrative_memory_gb, "GB future:", res$integrative_future_globals_gib, "GiB\n")
-  cat("  cluster:", res$cluster_cpu, "cpu", res$cluster_memory_gb, "GB future:", res$cluster_future_globals_gib, "GiB\n")
+  print_workflow_profile_resources(toggles, res)
 
   if (isTRUE(args$update_yaml)) {
-    cfg <- populate_project_paths(cfg, snap_root)
+    cfg <- populate_project_paths(cfg, daedalus_root)
     cfg <- apply_resource_profile(cfg, res, cellranger)
     write_updated_yaml(
       cfg = cfg,

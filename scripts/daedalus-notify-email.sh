@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Send snap workflow notifications to CONTACT_EMAIL (login node; never fails the caller).
+# Send daedalus workflow notifications to CONTACT_EMAIL (login node; never fails the caller).
 #
 # Usage:
-#   snap-notify-email.sh --to EMAIL --subject SUBJECT --body TEXT
+#   daedalus-notify-email.sh --to EMAIL --subject SUBJECT --body TEXT
 
 TO=""
 SUBJECT=""
@@ -22,7 +22,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "${TO}" || -z "${SUBJECT}" ]]; then
-  echo "snap-notify-email.sh: --to and --subject are required; skipped" >&2
+  echo "daedalus-notify-email.sh: --to and --subject are required; skipped" >&2
   exit 0
 fi
 
@@ -33,5 +33,5 @@ if command -v mail >/dev/null 2>&1; then
   mail -s "${SUBJECT}" "${TO}" <<< "${BODY}" && exit 0
 fi
 
-echo "snap-notify-email.sh: mailx/mail unavailable; skipped: ${SUBJECT}" >&2
+echo "daedalus-notify-email.sh: mailx/mail unavailable; skipped: ${SUBJECT}" >&2
 exit 0
