@@ -20,9 +20,6 @@ export PATH="/usr/bin:/bin:/usr/local/bin:${PATH:-}"
 
 DAEDALUS_ROOT=""
 WORKFLOW=""
-RUN_ID=""
-USE_LATEST=0
-OUTPUT=""
 WRITE_JSON=0
 EXPORT_DIR=""
 

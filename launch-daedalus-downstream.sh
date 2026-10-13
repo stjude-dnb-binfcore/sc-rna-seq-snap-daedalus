@@ -18,6 +18,7 @@ set -euo pipefail
 #   3. Scales LSF CPU and memory per module (baseline: 8 samples x 50k cells)
 #   4. Writes <root_dir>/inputs/project_parameters.generated.yaml (master Config.yaml unchanged)
 #   5. Writes inputs/generated_downstream.json for Sprocket
+#   6. After a successful submit, writes out/resource_usage/resource_usage_<run_id>.{csv,json}
 #
 # Edit project_parameters.Config.yaml for biology parameters and workflow_profile toggles.
 

@@ -12,12 +12,12 @@ Before launching downstream:
 2. **Sample metadata** exists at `data/project_metadata/project_metadata.tsv`.
 3. Metadata `ID` values exactly match the Cell Ranger sample directory names.
 4. **Apptainer/Singularity image** is configured at `resource_profile.container_image` in `project_parameters.Config.yaml` (default: `<root_dir>/rstudio_4.4.0_seurat_4.4.0_latest.sif`).
-5. You are on a St. Jude HPC node with **Sprocket**, **R**, and **Apptainer/Singularity** available.
+5. You are on a St. Jude HPC node with **Sprocket**, **R**, and **Apptainer/Singularity** available. Please note that a version of Singularity is installed by default on all the cluster nodes at St Jude HPC. Otherwise the user needs to ensure and load Singularity module.
 
 ## Load modules
 
 ```bash
-module load sprocket R singularity
+module load sprocket R
 ```
 
 ## Quick start
@@ -278,20 +278,20 @@ Key columns: `requested_cpu`, `requested_memory_gb`, `actual_max_memory_gb`, `me
 **Run manually** (e.g. after an older run):
 
 ```bash
+<<<<<<< HEAD
 # Latest Sprocket run
 bash scripts/collect-resource-usage.sh --daedalus-root . --latest --json
 
 # Specific run
 bash scripts/collect-resource-usage.sh --daedalus-root . --run-id 2026-08-31_234355266651904
-```
+=======
+# Latest Sprocket run (writes out/resource_usage/resource_usage_<run_id>.{csv,json})
+bash scripts/extract-resource-usage.sh
+# Copy reports elsewhere (e.g. ROI analysis input/)
+bash scripts/extract-resource-usage.sh --export-dir /path/to/destination
 
-**Requested resources only** (pre-run estimates, not actual usage):
-
-| File | Contents |
-|------|----------|
-| `inputs/generated_downstream.json` | Full estimate snapshot + Sprocket inputs |
-| `inputs/sprocket_inputs.json` | Flat inputs passed to `sprocket run` |
-
+# Specific run / workflow folder
+bash scripts/collect-resource-usage.sh --snap-root . --workflow daedalus_from_cellranger --run-id 2026-08-31_234355266651904 --json
 ---
 
 ## Downstream modules
