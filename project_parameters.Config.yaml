@@ -32,13 +32,13 @@ resource_profile:
 workflow_profile:
   run_upstream: true
   run_integrative: true
-  run_cluster: false
+  run_cluster: true
   run_contamination_removal: false
-  run_cell_types: false
+  run_cell_types: true
   run_clone_phylogeny: false
-  run_de_go: false
-  run_rshiny: false
-  run_project_updates: false
+  run_de_go: true
+  run_rshiny: true
+  run_project_updates: true
 
 # the following parameters are set up as default values and/or are specific for the following modules: 
 # `./analyses/fastqc-analysis`

@@ -52,6 +52,7 @@ normalize_module() {
     clone_phylogeny*) echo "clone_phylogeny" ;;
     de_go*) echo "de_go" ;;
     rshiny*) echo "rshiny" ;;
+    project_updates*) echo "project_updates" ;;
     *) return 1 ;;
   esac
 }
@@ -67,6 +68,7 @@ module_label() {
     clone_phylogeny) echo "Clone phylogeny" ;;
     de_go) echo "DE/GO analysis" ;;
     rshiny) echo "R Shiny app" ;;
+    project_updates) echo "Project updates / report" ;;
     *) echo "${module}" ;;
   esac
 }
