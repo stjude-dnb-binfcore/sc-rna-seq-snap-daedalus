@@ -33,3 +33,8 @@ inputs/sprocket_inputs.json
 
 # Generated WDL documentation
 _site/
+
+# Generated project parameters during Daedalus workflow execution
+._project_parameters.Config.yaml 
+.bash_history
+

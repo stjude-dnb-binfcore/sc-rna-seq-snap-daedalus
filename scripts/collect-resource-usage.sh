@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Collect per-module LSF resource usage for a Sprocket snap downstream run.
+# Collect per-module LSF resource usage for a Sprocket daedalus downstream run.
 #
 # Compares requested resources (from task inputs.json) with actual usage
 # reported by LSF (peak memory, CPU time, wall time, efficiency).
@@ -7,7 +7,7 @@
 # Writes reports under out/resource_usage/ by default.
 #
 # Usage:
-#   collect-resource-usage.sh --snap-root PATH [--workflow NAME] [--run-id ID | --latest] [--output PATH] [--json] [--export-dir PATH]
+#   collect-resource-usage.sh --daedalus-root PATH [--workflow NAME] [--run-id ID | --latest] [--output PATH] [--json] [--export-dir PATH]
 #
 # Workflow run directories live under out/runs/<workflow_name>/ (default workflow:
 # daedalus_from_cellranger). If --workflow is omitted, the script auto-detects a
@@ -18,17 +18,14 @@ set -euo pipefail
 # nohup/cron shells often omit /usr/bin; jq and bjobs live there on St. Jude HPC.
 export PATH="/usr/bin:/bin:/usr/local/bin:${PATH:-}"
 
-SNAP_ROOT=""
+DAEDALUS_ROOT=""
 WORKFLOW=""
-RUN_ID=""
-USE_LATEST=0
-OUTPUT=""
 WRITE_JSON=0
 EXPORT_DIR=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --snap-root) SNAP_ROOT="$2"; shift 2 ;;
+    --daedalus-root) DAEDALUS_ROOT="$2"; shift 2 ;;
     --workflow) WORKFLOW="$2"; shift 2 ;;
     --run-id) RUN_ID="$2"; shift 2 ;;
     --latest) USE_LATEST=1; shift ;;
@@ -43,19 +40,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "${SNAP_ROOT}" ]] || {
-  echo "Usage: collect-resource-usage.sh --snap-root PATH [--run-id ID | --latest] [--output PATH] [--json]" >&2
+[[ -n "${DAEDALUS_ROOT}" ]] || {
+  echo "Usage: collect-resource-usage.sh --daedalus-root PATH [--run-id ID | --latest] [--output PATH] [--json]" >&2
   exit 1
 }
 
-SNAP_ROOT="$(cd "${SNAP_ROOT}" && pwd)"
-RUNS_BASE="${SNAP_ROOT}/out/runs"
-RESOURCE_USAGE_DIR="${SNAP_ROOT}/out/resource_usage"
+DAEDALUS_ROOT="$(cd "${DAEDALUS_ROOT}" && pwd)"
+RUNS_BASE="${DAEDALUS_ROOT}/out/runs"
+RESOURCE_USAGE_DIR="${DAEDALUS_ROOT}/out/resource_usage"
 
 default_lsf_queue() {
-  local config="${SNAP_ROOT}/inputs/sprocket.generated.toml"
+  local config="${DAEDALUS_ROOT}/inputs/sprocket.generated.toml"
   if [[ ! -f "${config}" ]]; then
-    config="${SNAP_ROOT}/sprocket.toml"
+    config="${DAEDALUS_ROOT}/sprocket.toml"
   fi
   if [[ -f "${config}" ]]; then
     grep -E '^\s*default_lsf_queue\.name\s*=' "${config}" 2>/dev/null \
@@ -73,7 +70,7 @@ resolve_runs_root() {
     return 0
   fi
 
-  local preferred=("daedalus_from_cellranger" "sc_rna_seq_snap_downstream")
+  local preferred=("daedalus_from_cellranger" "sc_rna_seq_daedalus_downstream")
   local name candidate
   for name in "${preferred[@]}"; do
     candidate="${RUNS_BASE}/${name}"
@@ -143,7 +140,6 @@ normalize_module() {
     clone_phylogeny*) echo "clone_phylogeny" ;;
     de_go*) echo "de_go" ;;
     rshiny*) echo "rshiny" ;;
-    project_updates*) echo "project_updates" ;;
     *) return 1 ;;
   esac
 }
@@ -410,12 +406,12 @@ if [[ "${WRITE_JSON}" -eq 1 ]]; then
   if [[ -s "${tmp_rows}" ]]; then
     "${JQ}" -s \
     --arg generated_at "$(date -Is)" \
-    --arg snap_root "${SNAP_ROOT}" \
+    --arg daedalus_root "${DAEDALUS_ROOT}" \
     --arg run_id "${RUN_ID}" \
     --arg run_dir "${RUN_DIR}" \
   '{
     generated_at: $generated_at,
-    snap_root: $snap_root,
+    daedalus_root: $daedalus_root,
     run_id: $run_id,
     run_dir: $run_dir,
     modules: .

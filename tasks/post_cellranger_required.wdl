@@ -5,14 +5,14 @@ version 1.3
 # Container execution is handled by Sprocket (lsf_apptainer backend) via
 # requirements.container — do not call singularity/apptainer in command blocks.
 # Per-module email: LSF bsub -B/-N/-u CONTACT_EMAIL (inputs/sprocket.generated.toml).
-# Workflow email: scripts/snap-notify-email.sh from launch-snap-sprocket.sh.
+# Workflow email: scripts/daedalus-notify-email.sh from launch-daedalus-sprocket.sh.
 task run_upstream {
     meta {
         description: "Upstream Seurat QC module"
     }
 
     input {
-        String snap_root
+        String daedalus_root
         String container_image
         String notify_email
         Int cpu = 16
@@ -24,9 +24,9 @@ task run_upstream {
         set -euo pipefail
         TASK_DIR="$(pwd)"
         echo "Module: upstream  LSF mail: ~{notify_email}"
-        export SNAP_CONFIG_FILE="~{snap_root}/inputs/project_parameters.generated.yaml"
+        export DAEDALUS_CONFIG_FILE="~{daedalus_root}/inputs/project_parameters.generated.yaml"
         export FUTURE_GLOBALS_MAXSIZE_GIB="~{future_globals_gib}"
-        cd "~{snap_root}/analyses/upstream-analysis"
+        cd "~{daedalus_root}/analyses/upstream-analysis"
         bash run-upstream-analysis.sh
         echo "done" > "${TASK_DIR}/upstream.done"
     >>>
@@ -48,7 +48,7 @@ task run_cluster {
     }
 
     input {
-        String snap_root
+        String daedalus_root
         String container_image
         String notify_email
         Int cpu = 4
@@ -60,9 +60,9 @@ task run_cluster {
         set -euo pipefail
         TASK_DIR="$(pwd)"
         echo "Module: cluster  LSF mail: ~{notify_email}"
-        export SNAP_CONFIG_FILE="~{snap_root}/inputs/project_parameters.generated.yaml"
+        export DAEDALUS_CONFIG_FILE="~{daedalus_root}/inputs/project_parameters.generated.yaml"
         export FUTURE_GLOBALS_MAXSIZE_GIB="~{future_globals_gib}"
-        cd "~{snap_root}/analyses/cluster-cell-calling"
+        cd "~{daedalus_root}/analyses/cluster-cell-calling"
         bash run-cluster-cell-calling.sh
         echo "done" > "${TASK_DIR}/cluster.done"
     >>>
@@ -84,7 +84,7 @@ task run_cell_types {
     }
 
     input {
-        String snap_root
+        String daedalus_root
         String container_image
         String notify_email
         Int cpu = 4
@@ -95,8 +95,8 @@ task run_cell_types {
         set -euo pipefail
         TASK_DIR="$(pwd)"
         echo "Module: cell_types  LSF mail: ~{notify_email}"
-        export SNAP_CONFIG_FILE="~{snap_root}/inputs/project_parameters.generated.yaml"
-        cd "~{snap_root}/analyses/cell-types-annotation"
+        export DAEDALUS_CONFIG_FILE="~{daedalus_root}/inputs/project_parameters.generated.yaml"
+        cd "~{daedalus_root}/analyses/cell-types-annotation"
         bash run-cell-types-annotation.sh
         echo "done" > "${TASK_DIR}/cell_types.done"
     >>>
@@ -118,7 +118,7 @@ task run_project_updates {
     }
 
     input {
-        String snap_root
+        String daedalus_root
         String container_image
         String notify_email
         Int cpu = 1
@@ -129,8 +129,8 @@ task run_project_updates {
         set -euo pipefail
         TASK_DIR="$(pwd)"
         echo "Module: project_updates  LSF mail: ~{notify_email}"
-        export SNAP_CONFIG_FILE="~{snap_root}/inputs/project_parameters.generated.yaml"
-        cd "~{snap_root}/analyses/project-updates"
+        export DAEDALUS_CONFIG_FILE="~{daedalus_root}/inputs/project_parameters.generated.yaml"
+        cd "~{daedalus_root}/analyses/project-updates"
         bash run-project-updates.sh
         echo "done" > "${TASK_DIR}/project_updates.done"
     >>>
@@ -152,7 +152,7 @@ task run_rshiny {
     }
 
     input {
-        String snap_root
+        String daedalus_root
         String container_image
         String notify_email
         Int cpu = 4
@@ -163,8 +163,8 @@ task run_rshiny {
         set -euo pipefail
         TASK_DIR="$(pwd)"
         echo "Module: rshiny  LSF mail: ~{notify_email}"
-        export SNAP_CONFIG_FILE="~{snap_root}/inputs/project_parameters.generated.yaml"
-        cd "~{snap_root}/analyses/rshiny-app"
+        export DAEDALUS_CONFIG_FILE="~{daedalus_root}/inputs/project_parameters.generated.yaml"
+        cd "~{daedalus_root}/analyses/rshiny-app"
         bash run-rshiny-app.sh
         echo "done" > "${TASK_DIR}/rshiny.done"
     >>>
