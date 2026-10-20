@@ -353,6 +353,8 @@ bash scripts/collect-resource-usage.sh --snap-root . --workflow daedalus_from_ce
 
 Enabled modules run in dependency order; skipped modules do not block later steps.
 
+After a Sprocket run, workflow outputs include `*_results` paths pointing at each module’s primary artifact folder (usually `analyses/<module>/results`; project updates HTML under `analyses/project-updates/reports`). These strings are informational only—tasks always use `project_root` as `snap_root`.
+
 ---
 
 ## Email notifications
