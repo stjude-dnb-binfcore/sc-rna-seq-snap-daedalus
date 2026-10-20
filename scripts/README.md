@@ -1,8 +1,16 @@
 # Daedalus downstream launcher
 
 `launch-daedalus-downstream.sh` runs enabled downstream analyses from completed
-Cell Ranger outputs. It uses the checked-in
-`workflows/daedalus_from_cellranger.wdl`.
+Cell Ranger outputs. It submits jobs through **Sprocket** using the **static**
+workflow at `workflows/daedalus_from_cellranger.wdl` (the fixed WDL in this
+repository—not regenerated on each launch).
+
+**Which modules run** is controlled separately: set `run_*` toggles under
+`workflow_profile` in `project_parameters.Config.yaml`. Each launch copies
+those toggles into `inputs/sprocket_inputs.json` and writes scaled resources to
+`inputs/project_parameters.generated.yaml`; see
+[What the launcher does](#what-the-launcher-does) and
+[Files you edit manually](#files-you-edit-manually).
 
 ## Prerequisites
 
@@ -20,18 +28,22 @@ Before launching downstream:
 module load sprocket R
 ```
 
-## Quick start
+## Dry run — validate files and refresh inputs
 
-Run from the **project root** (parent of this `scripts/` folder):
+Run from the **project root** (parent of this `scripts/` folder). With no flags,
+the launcher refreshes generated YAML/inputs, checks the static WDL, and
+validates Sprocket inputs—it does **not** submit LSF jobs.
 
 ```bash
-# Dry-run: refresh YAML/inputs, check and validate the static WDL (no LSF submit)
 bash launch-daedalus-downstream.sh
 ```
 
+To submit after a successful dry run, add `--submit` (see
+[Safe ways to launch downstream analysis](#safe-ways-to-launch-downstream-analysis)).
+
 ---
 
-## Safe ways to run it
+## Safe ways to launch downstream analysis
 
 ### Option 1 — nohup in the background (recommended)
 
@@ -68,6 +80,10 @@ bash launch-daedalus-downstream.sh --submit
 # Reattach later: tmux attach -t daedalus
 ```
 
+---
+
+## Module dependencies
+
 The WDL uses `after` clauses to enforce module order (see
 `workflows/MODULE_DEPENDENCIES.md` for the full diagram including FastQC,
 Cell Ranger, and **project-updates**).
@@ -82,6 +98,14 @@ summary → upstream → integrative (opt) → cluster → contamination (opt)
 When a data-producing prerequisite is disabled, its expected result files must
 already exist on disk.
 
+For **standard project runs**, choose modules with `workflow_profile` in
+`project_parameters.Config.yaml`; editing WDL is not required. Changing workflow
+structure (dependencies, LSF tasks, or adding optional modules) is
+**maintainer-level** and uncommon—only if you are developing the pipeline itself.
+Those definitions live in `workflows/daedalus_from_cellranger.wdl` and
+`tasks/post_cellranger_required.wdl` / `tasks/post_cellranger_optional.wdl`
+(details in `workflows/MODULE_DEPENDENCIES.md`).
+
 ---
 
 ## What the launcher does
@@ -95,15 +119,32 @@ Each run performs these steps in order:
 | 3. Check WDL | `sprocket check workflows/daedalus_from_cellranger.wdl` | — |
 | 4. Validate inputs | `sprocket validate workflows/daedalus_from_cellranger.wdl @inputs/sprocket_inputs.json --config inputs/sprocket.generated.toml` | — |
 | 5. Submit (if not dry-run) | `sprocket run ... --output-dir out --no-call-cache` | LSF jobs |
-| 6. Collect resource usage | `scripts/collect-resource-usage.sh --latest --json` | `out/resource_usage/` |
+| 6. Collect resource usage (after `--submit` only) | `scripts/collect-resource-usage.sh --daedalus-root . --latest --json` | `out/resource_usage/` |
 
 The resource estimator:
 
 - Counts samples from `project_metadata.tsv` (or Cell Ranger output directories).
 - Reads **Cell Ranger** `metrics_summary.csv` for cells per sample.
-- Scales LSF CPU, memory, and `future_globals_*` values (baseline: 8 samples × 50k cells).
+- Computes tiered CPU, memory, and `future_globals_*` for the pre-launch snapshot and generated YAML (baseline: 8 samples × 50k cells). **WDL/Sprocket LSF requests** are set at workflow runtime by `estimate_downstream_resources` (see below).
 - Adds **20% LSF memory headroom** to every module’s `*_memory_gb` value (via `apply_lsf_memory_headroom()` in `estimate-daedalus-downstream-resources.R`) so jobs are not killed when usage spikes slightly above the base estimate. Example: upstream base **30 GB** → **36 GB** requested on LSF (`ceil(30 × 1.2)`).
 - Copies **workflow module toggles** from `workflow_profile` in your master YAML into Sprocket inputs.
+
+### Resource estimation: R script vs WDL
+
+Resource sizing is computed in **two places** with the same tiering rules (8 samples × 50k cells baseline, 20% memory headroom). They serve different roles:
+
+| When | Where | Outputs | Used for |
+|------|--------|---------|----------|
+| **Before** `sprocket run` | `scripts/estimate-daedalus-downstream-resources.R` | `inputs/generated_downstream.json` (`resource_estimate` snapshot), `inputs/project_parameters.generated.yaml`, `inputs/sprocket_inputs.json` | Pre-flight logs, config overlay for R modules (`DAEDALUS_CONFIG_FILE`), Sprocket validate inputs. **`sprocket_inputs.json` does not include per-module CPU/memory.** |
+| **During** the workflow | WDL task `estimate_downstream_resources` in `tasks/pre_cellranger.wdl` (called from `workflows/daedalus_from_cellranger.wdl` after per-sample metrics are parsed) | JSON consumed inside the workflow | **LSF requests** for each downstream module (`requirements.cpu` / `memory`) and `FUTURE_GLOBALS_MAXSIZE_GIB` passed into module commands. |
+
+**If the two estimates ever disagree**, the **WDL task** values govern what Sprocket submits for WDL/Sprocket runs. The pre-launch JSON is a snapshot for visibility and resource-usage reporting, not the submission source of truth.
+
+Under normal conditions both paths read the same Cell Ranger metrics and should match. They can diverge if metrics or inputs change between the pre-launch R step and the workflow run, or if the duplicated formulas in R and WDL are updated out of sync.
+
+**Interactive / per-module runs** (no Sprocket workflow) do not run `estimate_downstream_resources`; use `project_parameters.Config.yaml` and the generated overlay from the R script only.
+
+Editing **`compute_resources()`** in `estimate-daedalus-downstream-resources.R` updates the pre-launch JSON/YAML and helps **interactive** runs. It does **not** change LSF memory for **WDL/Sprocket** submissions unless you make the same change in the inline R inside **`estimate_downstream_resources`** in `tasks/pre_cellranger.wdl` (keep the two copies in sync).
 
 At runtime, downstream R modules load config via `scripts/daedalus_read_config.R` (see [YAML config: which file is used?](#yaml-config-which-file-is-used) below).
 
@@ -154,16 +195,16 @@ root_dir="$(daedalus_yaml_get root_dir)"
 To force a specific YAML (e.g. test the generated overlay outside Sprocket):
 
 ```bash
-export DAEDALUS_CONFIG_FILE=/path/to/daedalus/inputs/project_parameters.generated.yaml
+export DAEDALUS_CONFIG_FILE=/path/to/project/inputs/project_parameters.generated.yaml
 Rscript analyses/upstream-analysis/run-upstream-analysis.R
 ```
 
 ### What to edit
 
-| File | When to edit |
+| File | Edit by hand? |
 |------|----------------|
-| `project_parameters.Config.yaml` | Biology, paths, `workflow_profile`, emails — **always edit this** for interactive/LSF runs |
-| `<root_dir>/inputs/project_parameters.generated.yaml` | **Do not edit by hand** — regenerated by `estimate-daedalus-downstream-resources.R` on each Sprocket launch |
+| `project_parameters.Config.yaml` | **Yes** — biology, paths, `workflow_profile`, emails (master template for Sprocket and direct/interactive runs) |
+| `<root_dir>/inputs/project_parameters.generated.yaml` | **No** — regenerated by `estimate-daedalus-downstream-resources.R` on each Sprocket launch |
 
 ---
 
@@ -195,6 +236,7 @@ workflow_profile:
   run_clone_phylogeny: false
   run_de_go: false
   run_rshiny: false
+  run_project_updates: false
 ```
 
 **Example — enable more modules later:**
@@ -229,7 +271,7 @@ Examples:
 
 ---
 
-## Files you should **not** edit by hand
+## Files you should not edit
 
 These are regenerated on each launch:
 
@@ -239,8 +281,6 @@ These are regenerated on each launch:
 | `inputs/generated_downstream.json` | Resource estimate snapshot |
 | `inputs/sprocket_inputs.json` | Flat inputs for `sprocket validate` / `sprocket run` |
 | `inputs/sprocket.generated.toml` | Runtime Sprocket configuration |
-
-To change WDL structure, edit `workflows/daedalus_from_cellranger.wdl`, `tasks/post_cellranger_required.wdl`, and `tasks/post_cellranger_optional.wdl`.
 
 ---
 
@@ -256,6 +296,7 @@ To change WDL structure, edit `workflows/daedalus_from_cellranger.wdl`, `tasks/p
 | `daedalus_read_config.R` | Helper used by R modules to load YAML config |
 | `daedalus-read-config.sh` | Bash helper for shell scripts (same config precedence as `daedalus_read_config.R`) |
 | `collect-resource-usage.sh` | Post-run LSF resource report (requested vs actual per module) |
+| `extract-resource-usage.sh` | Convenience wrapper: `--latest --json` into `out/resource_usage/` |
 | `test-downstream-layout.sh` | Sanity-check that expected WDL/inputs files exist |
 
 Root launcher (one level up): `launch-daedalus-downstream.sh`
@@ -278,20 +319,23 @@ Key columns: `requested_cpu`, `requested_memory_gb`, `actual_max_memory_gb`, `me
 **Run manually** (e.g. after an older run):
 
 ```bash
-<<<<<<< HEAD
-# Latest Sprocket run
-bash scripts/collect-resource-usage.sh --daedalus-root . --latest --json
-
-# Specific run
-bash scripts/collect-resource-usage.sh --daedalus-root . --run-id 2026-08-31_234355266651904
-=======
 # Latest Sprocket run (writes out/resource_usage/resource_usage_<run_id>.{csv,json})
 bash scripts/extract-resource-usage.sh
+
 # Copy reports elsewhere (e.g. ROI analysis input/)
 bash scripts/extract-resource-usage.sh --export-dir /path/to/destination
 
 # Specific run / workflow folder
-bash scripts/collect-resource-usage.sh --snap-root . --workflow daedalus_from_cellranger --run-id 2026-08-31_234355266651904 --json
+bash scripts/collect-resource-usage.sh --daedalus-root . --workflow daedalus_from_cellranger --run-id 2026-08-31_234355266651904 --json
+```
+
+**Requested resources only** (pre-run estimates from the R script, not LSF-observed usage; for WDL runs, LSF requests come from the workflow task at runtime):
+
+| File | Contents |
+|------|----------|
+| `inputs/generated_downstream.json` | `resource_estimate` snapshot (per-module CPU/memory/`future_globals_*`) plus embedded copy of Sprocket inputs |
+| `inputs/sprocket_inputs.json` | Paths, toggles, and containers for `sprocket validate` / `sprocket run` — **no per-module CPU/memory** |
+
 ---
 
 ## Downstream modules
@@ -309,6 +353,10 @@ bash scripts/collect-resource-usage.sh --snap-root . --workflow daedalus_from_ce
 | Project report / summary | `run_project_updates` | `run_project_updates` |
 
 Enabled modules run in dependency order; skipped modules do not block later steps.
+
+After a Sprocket run, workflow outputs include `*_results` paths pointing at each module’s primary artifact folder (usually `analyses/<module>/results`; project updates HTML under `analyses/project-updates/reports`). These strings are informational only—tasks always use `project_root` as `daedalus_root`.
+
+---
 
 ## Email notifications
 
@@ -336,7 +384,37 @@ To change the recipient, edit `CONTACT_EMAIL` in the master YAML and re-run the 
 | Missing Cell Ranger metrics | Complete Cell Ranger or run `Rscript scripts/estimate-daedalus-downstream-resources.R --daedalus-root . --output inputs/generated_downstream.json --estimated-cells-per-sample <count>` |
 | Container pull fails / `repository name must be lowercase` | Local `.sif` paths must use the `file://` scheme for Sprocket (auto-added in `sprocket_inputs.json`). Keep plain paths in YAML; re-run the launcher to regenerate inputs. |
 | Wrong modules running | Edit `workflow_profile` in `project_parameters.Config.yaml`, then re-launch |
-| LSF job killed at memory limit (`TERM_MEMLIMIT`) | Re-run the launcher so `estimate-daedalus-downstream-resources.R` refreshes `inputs/sprocket_inputs.json` with the 20% headroom applied. If a module still OOMs, increase the base tier manually in `compute_resources()` or reduce parallel work inside that R module. |
+| LSF job killed at memory limit (`TERM_MEMLIMIT`) | See [LSF memory limit (`TERM_MEMLIMIT`)](#lsf-memory-limit-term_memlimit) below |
+
+### LSF memory limit (`TERM_MEMLIMIT`)
+
+LSF killed the job because **resident memory exceeded the requested limit** for that Sprocket task.
+
+**20% headroom is already included** in both estimators (R: `apply_lsf_memory_headroom()` / `LSF_MEMORY_HEADROOM`; WDL: `* 1.2` on each `*_memory_gb` in `estimate_downstream_resources`). **Re-launching with no other changes does not add more headroom**—it only refreshes inputs and re-runs the same formulas. Re-launch *can* raise the tier if Cell Ranger metrics were missing before (so `cell_scale` was too low) or sample/cell counts changed.
+
+**WDL / Sprocket runs:** LSF **CPU and memory requests** come from the workflow task `estimate_downstream_resources`, not from `sprocket_inputs.json` or `generated_downstream.json`. To request more memory:
+
+1. Identify the failing module (upstream, integrative, cluster, etc.) from LSF/Sprocket logs.
+2. Raise that module’s **base GB** (before the ×1.2 factor) in **`tasks/pre_cellranger.wdl`**, inside the inline R in task `estimate_downstream_resources`—for example `upstream_memory_gb = ... (30L + 10L * (cell_scale - 1L)) * 1.2` → increase `30L` (and the per-`cell_scale` increment if needed).
+3. Mirror the same base values in **`compute_resources()`** in `scripts/estimate-daedalus-downstream-resources.R` so pre-launch estimates and `project_parameters.generated.yaml` stay aligned with what the workflow will request.
+
+| Module | Field to adjust | Default base GB (before ×1.2 headroom) |
+|--------|-----------------|----------------------------------------|
+| Upstream | `upstream_memory_gb` | `30 + 10 × (cell_scale − 1)` |
+| Integrative | `integrative_memory_gb` | `96 + 24 × (cell_scale − 1)` |
+| Cluster | `cluster_memory_gb` | `48 + 16 × (cell_scale − 1)` |
+| Contamination | `contamination_memory_gb` | `96 + 24 × (cell_scale − 1)` |
+| Cell types | `cell_types_memory_gb` | `64 + 16 × (cell_scale − 1)` |
+| Clone phylogeny | `clone_phylogeny_memory_gb` | fixed `30` |
+| DE / GO | `de_go_memory_gb` | `32 + 8 × (cell_scale − 1)` |
+| R Shiny | `rshiny_memory_gb` | fixed `30` |
+| Project updates | `project_updates_memory_gb` | fixed `4` |
+
+To increase headroom globally, change **`LSF_MEMORY_HEADROOM`** in the R script and the **`1.2`** multiplier in the WDL task (both places).
+
+Compare requested vs observed usage after a run: `bash scripts/collect-resource-usage.sh --daedalus-root . --latest --json`. If the failure is R **`future`** global limits rather than LSF RSS, adjust the matching `*_future_globals_gib` fields in the same two locations.
+
+**Interactive / per-module LSF** (no WDL): editing **`compute_resources()`** (or re-running the estimator with `--update-yaml`) is the supported path; optional fallback is reducing parallel workers inside that module’s R code.
 
 Monitor LSF jobs after submit:
 
