@@ -11,6 +11,8 @@ required=(
   sprocket.toml
   scripts/estimate-daedalus-downstream-resources.R
   scripts/launch-daedalus-sprocket.sh
+  scripts/collect-resource-usage.sh
+  scripts/extract-resource-usage.sh
   workflows/daedalus_from_cellranger.wdl
   tasks/post_cellranger_optional.wdl
   tasks/post_cellranger_required.wdl

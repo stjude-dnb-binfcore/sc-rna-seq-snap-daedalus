@@ -22,6 +22,9 @@ DAEDALUS_ROOT=""
 WORKFLOW=""
 WRITE_JSON=0
 EXPORT_DIR=""
+RUN_ID=""
+USE_LATEST=0
+OUTPUT=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -140,6 +143,7 @@ normalize_module() {
     clone_phylogeny*) echo "clone_phylogeny" ;;
     de_go*) echo "de_go" ;;
     rshiny*) echo "rshiny" ;;
+    project_updates*) echo "project_updates" ;;
     *) return 1 ;;
   esac
 }
