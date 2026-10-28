@@ -101,7 +101,7 @@ already exist on disk.
 For **standard project runs**, choose modules with `workflow_profile` in
 `project_parameters.Config.yaml`; editing WDL is not required. Changing workflow
 structure (dependencies, LSF tasks, or adding optional modules) is
-**maintainer-level** and uncommon—only if you are developing the pipeline itself.
+**maintainer-level** and typically done only if you are developing the pipeline itself.
 Those definitions live in `workflows/daedalus_from_cellranger.wdl` and
 `tasks/post_cellranger_required.wdl` / `tasks/post_cellranger_optional.wdl`
 (details in `workflows/MODULE_DEPENDENCIES.md`).
