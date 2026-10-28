@@ -4,7 +4,7 @@ on:
     paths:
       - ".github/workflows/sprocket.yml"
       - "sprocket.local.toml"
-      - "launch-snap-downstream.sh"
+      - "launch-daedalus-downstream.sh"
       - "scripts/**"
       - "tasks/**"
       - "test/fixtures/**"
@@ -15,7 +15,7 @@ on:
     paths:
       - ".github/workflows/sprocket.yml"
       - "sprocket.local.toml"
-      - "launch-snap-downstream.sh"
+      - "launch-daedalus-downstream.sh"
       - "scripts/**"
       - "tasks/**"
       - "test/fixtures/**"
@@ -83,7 +83,7 @@ jobs:
           sprocket dev doc .
           --output _site
           --overwrite
-          --github-url https://github.com/stjude-dnb-binfcore/sc-rna-seq-snap-sprocket
+          --github-url https://github.com/stjude-dnb-binfcore/sc-rna-seq-snap-daedalus
       - name: Upload GitHub Pages artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v5.0.0

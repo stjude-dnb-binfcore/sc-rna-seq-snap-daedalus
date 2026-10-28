@@ -77,7 +77,7 @@ workflow daedalus_from_cellranger {
 
     if (run_upstream) {
         call required.run_upstream as upstream after write_cellranger_summary { input:
-            snap_root = project_root,
+            daedalus_root = project_root,
             container_image = downstream_container,
             notify_email = notify_email,
             cpu = estimate_downstream_resources.resources.upstream_cpu,
@@ -87,7 +87,7 @@ workflow daedalus_from_cellranger {
     }
     if (run_integrative) {
         call optional.run_integrative as integrative after upstream { input:
-            snap_root = project_root,
+            daedalus_root = project_root,
             container_image = downstream_container,
             notify_email = notify_email,
             cpu = estimate_downstream_resources.resources.integrative_cpu,
@@ -98,7 +98,7 @@ workflow daedalus_from_cellranger {
 
     if (run_cluster) {
         call required.run_cluster as cluster after upstream after integrative { input:
-            snap_root = project_root,
+            daedalus_root = project_root,
             container_image = downstream_container,
             notify_email = notify_email,
             cpu = estimate_downstream_resources.resources.cluster_cpu,
@@ -109,7 +109,7 @@ workflow daedalus_from_cellranger {
 
     if (run_contamination_removal) {
         call optional.run_contamination_removal as contamination_removal after cluster { input:
-            snap_root = project_root,
+            daedalus_root = project_root,
             container_image = downstream_container,
             notify_email = notify_email,
             cpu = estimate_downstream_resources.resources.contamination_cpu,
@@ -120,7 +120,7 @@ workflow daedalus_from_cellranger {
 
     if (run_cell_types) {
         call required.run_cell_types as cell_types after cluster after contamination_removal { input:
-            snap_root = project_root,
+            daedalus_root = project_root,
             container_image = downstream_container,
             notify_email = notify_email,
             cpu = estimate_downstream_resources.resources.cell_types_cpu,
@@ -130,7 +130,7 @@ workflow daedalus_from_cellranger {
 
     if (run_rshiny) {
         call required.run_rshiny as rshiny after cell_types { input:
-            snap_root = project_root,
+            daedalus_root = project_root,
             container_image = downstream_container,
             notify_email = notify_email,
             cpu = estimate_downstream_resources.resources.rshiny_cpu,
@@ -140,7 +140,7 @@ workflow daedalus_from_cellranger {
 
     if (run_clone_phylogeny) {
         call optional.run_clone_phylogeny as clone_phylogeny after cell_types { input:
-            snap_root = project_root,
+            daedalus_root = project_root,
             container_image = downstream_container,
             notify_email = notify_email,
             cpu = estimate_downstream_resources.resources.clone_phylogeny_cpu,
@@ -150,7 +150,7 @@ workflow daedalus_from_cellranger {
 
     if (run_de_go) {
         call optional.run_de_go as de_go after cell_types { input:
-            snap_root = project_root,
+            daedalus_root = project_root,
             container_image = downstream_container,
             notify_email = notify_email,
             cpu = estimate_downstream_resources.resources.de_go_cpu,
@@ -162,7 +162,7 @@ workflow daedalus_from_cellranger {
     if (run_project_updates) {
         call required.run_project_updates as project_updates after upstream after integrative
             after cluster after contamination_removal after cell_types after rshiny { input:
-            snap_root = project_root,
+            daedalus_root = project_root,
             container_image = downstream_container,
             notify_email = notify_email,
             cpu = estimate_downstream_resources.resources.project_updates_cpu,

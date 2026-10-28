@@ -1,4 +1,4 @@
-# Snap module dependencies (Sprocket WDL)
+# Pipeline module dependencies (Sprocket WDL)
 
 Sprocket enforces these edges via WDL `after` clauses in
 `daedalus_from_cellranger.wdl`. Each arrow on the **spine** means the next
