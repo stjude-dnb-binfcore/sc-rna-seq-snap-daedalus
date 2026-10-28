@@ -42,7 +42,7 @@ daedalus_log_config_file() {
   echo "Using config: $(daedalus_config_file)"
 }
 
-daedalus_yaml_r() {
+_daedalus_yaml_r() {
   local daedalus_root rcode
   daedalus_root="$(daedalus_resolve_root)"
   rcode="$1"

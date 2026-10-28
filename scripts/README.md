@@ -126,7 +126,7 @@ The resource estimator:
 - Counts samples from `project_metadata.tsv` (or Cell Ranger output directories).
 - Reads **Cell Ranger** `metrics_summary.csv` for cells per sample.
 - Computes tiered CPU, memory, and `future_globals_*` for the pre-launch snapshot and generated YAML (baseline: 8 samples × 50k cells). **WDL/Sprocket LSF requests** are set at workflow runtime by `estimate_downstream_resources` (see below).
-- Adds **20% LSF memory headroom** to every module’s `*_memory_gb` value (via `apply_lsf_memory_headroom()` in `estimate-daedalus-downstream-resources.R`) so jobs are not killed when usage spikes slightly above the base estimate. Example: upstream base **30 GB** → **36 GB** requested on LSF (`ceil(30 × 1.2)`).
+- Adds **20% LSF memory headroom** to every module’s `*_memory_gb` value (via `apply_lsf_memory_headroom()` in `estimate-daedalus-downstream-resources.R`) so jobs are not killed when usage spikes slightly above the base estimate. Example: upstream base **30 GB** → **36 GB** requested on LSF (`ceiling(30 × 1.2)`).
 - Copies **workflow module toggles** from `workflow_profile` in your master YAML into Sprocket inputs.
 
 ### Resource estimation: R script vs WDL
