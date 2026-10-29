@@ -70,7 +70,13 @@ daedalus_submit_cellranger_jobs() {
 }
 
 run_from_module_dir() {
-  cd "$(dirname "${BASH_SOURCE[0]}")"
+  # bsub < submit-multiple-jobs.sh: LSF executes a *copy* in the job spool, so
+  # BASH_SOURCE[0] is not the repo path. Use the submission cwd (-cwd ".").
+  if [[ -n "${LSB_JOBID:-}" ]]; then
+    cd "${LSB_JOBCWD:-${PWD}}"
+  else
+    cd "$(dirname "${BASH_SOURCE[0]}")"
+  fi
   daedalus_submit_cellranger_jobs "${1:-}"
 }
 

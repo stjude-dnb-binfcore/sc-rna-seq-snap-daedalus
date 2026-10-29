@@ -49,10 +49,11 @@ Cell Ranger will automatically recognize these as multiple libraries for the sam
 From **`analyses/cellranger-analysis`** on an interactive session:
 
 ```bash
+cd analyses/cellranger-analysis
 bsub < submit-multiple-jobs.sh
 ```
 
-LSF runs `submit-multiple-jobs.sh` as a job (the `#BSUB` lines at the top of that file set queue, memory, and logs). That job submits the internal `j1` alignments and the `waiter.sh` → `j2` summary chain. No daedalus or Sprocket launcher is involved.
+Run **`bsub` from this directory** so `-cwd "."` is the module folder. LSF runs `submit-multiple-jobs.sh` as a job (the `#BSUB` lines at the top of that file set queue, memory, and logs). That job submits the internal `j1` alignments and the `waiter.sh` → `j2` summary chain. No daedalus or Sprocket launcher is involved.
 
 ### Via daedalus or `launch_full_pipeline.sh`
 
