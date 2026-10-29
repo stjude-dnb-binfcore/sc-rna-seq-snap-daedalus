@@ -80,7 +80,27 @@ if daedalus_any_downstream_module_enabled; then
   DOWNSTREAM_ENABLED=1
 fi
 
+NOTIFY_EMAIL="$(daedalus_yaml_get CONTACT_EMAIL 2>/dev/null || true)"
+if [[ -z "${NOTIFY_EMAIL}" ]]; then
+  NOTIFY_EMAIL="user.name@stjude.org"
+  echo "WARN: CONTACT_EMAIL not set in project_parameters.Config.yaml; notifications go to ${NOTIFY_EMAIL}" >&2
+fi
+
+send_workflow_email() {
+  local subject="$1"
+  local body="$2"
+  bash "${NOTIFY_SCRIPT}" --to "${NOTIFY_EMAIL}" --subject "${subject}" --body "${body}" || true
+}
+
 echo "==> Using static WDL: ${WORKFLOW}"
+
+if [[ "${DRY_RUN}" -eq 0 ]]; then
+  send_workflow_email "[daedalus] pipeline: submit started" \
+    "Daedalus launch started at $(date -Is)
+Project: ${DAEDALUS_ROOT}
+Preprocessing: run_fastqc=${RUN_FASTQC} run_cellranger=${RUN_CELLRANGER}
+Downstream (Sprocket): enabled=$([[ "${DOWNSTREAM_ENABLED}" -eq 1 ]] && echo true || echo false)"
+fi
 
 if [[ "${RUN_FASTQC}" == "TRUE" || "${RUN_CELLRANGER}" == "TRUE" ]]; then
   if [[ "${DRY_RUN}" -eq 1 ]]; then
@@ -101,6 +121,9 @@ if [[ "${RUN_FASTQC}" == "TRUE" || "${RUN_CELLRANGER}" == "TRUE" ]]; then
         exit 1
       fi
       echo "==> Cell Ranger complete"
+      send_workflow_email "[daedalus] Cell Ranger: complete" \
+        "Cell Ranger LSF chain finished at $(date -Is). Planning downstream resources and Sprocket submit next.
+Project: ${DAEDALUS_ROOT}"
       DATA_DIR="$(daedalus_yaml_get data_dir 2>/dev/null || true)"
       if [[ -z "${DATA_DIR}" ]] || ! compgen -G "${DATA_DIR}/*/outs/metrics_summary.csv" >/dev/null 2>&1; then
         echo "Cell Ranger waiter finished but no metrics_summary.csv under data_dir:" >&2
@@ -117,6 +140,9 @@ if [[ "${DOWNSTREAM_ENABLED}" -eq 0 ]]; then
     echo "Dry run complete (no downstream modules enabled in workflow_profile)."
   else
     echo "Preprocessing submitted; no downstream modules enabled in workflow_profile."
+    send_workflow_email "[daedalus] pipeline: preprocessing only" \
+      "Preprocessing jobs submitted at $(date -Is). No downstream Sprocket modules enabled in workflow_profile.
+Project: ${DAEDALUS_ROOT}"
   fi
   exit 0
 fi
@@ -146,16 +172,12 @@ CONFIG="${GENERATED_CONFIG}"
 MONITOR_SCRIPT="${SCRIPT_DIR}/monitor-daedalus-task-emails.sh"
 RESOURCE_SCRIPT="${SCRIPT_DIR}/collect-resource-usage.sh"
 
-NOTIFY_EMAIL="$(
-  grep -o '"daedalus_from_cellranger.notify_email"[[:space:]]*:[[:space:]]*"[^"]*"' "${INPUTS}" \
-    | sed -n '1s/.*"\([^"]*\)"$/\1/p'
-)"
-
-send_workflow_email() {
-  local subject="$1"
-  local body="$2"
-  bash "${NOTIFY_SCRIPT}" --to "${NOTIFY_EMAIL}" --subject "${subject}" --body "${body}" || true
-}
+if [[ -z "${NOTIFY_EMAIL}" ]]; then
+  NOTIFY_EMAIL="$(
+    grep -o '"daedalus_from_cellranger.notify_email"[[:space:]]*:[[:space:]]*"[^"]*"' "${INPUTS}" \
+      | sed -n '1s/.*"\([^"]*\)"$/\1/p'
+  )"
+fi
 
 echo "==> Checking WDL"
 sprocket check "${WORKFLOW}"
@@ -177,8 +199,11 @@ fi
 [[ "${DRY_RUN}" -eq 1 ]] && { echo "Dry run complete."; exit 0; }
 
 echo "==> Submitting downstream workflow"
-send_workflow_email "[daedalus] workflow: submitted" \
-  "Daedalus downstream workflow submitted at $(date -Is)\nProject: ${DAEDALUS_ROOT}\nConfig: ${CONFIG}"
+send_workflow_email "[daedalus] Sprocket downstream: submitted" \
+  "Sprocket downstream workflow submitted at $(date -Is)
+Project: ${DAEDALUS_ROOT}
+Config: ${CONFIG}
+Per-module start/complete emails follow via monitor-daedalus-task-emails.sh."
 
 set +e
 # Shared directories are passed as String paths, so call caching cannot detect changes to their contents.
@@ -204,10 +229,13 @@ if [[ "${COLLECT_RESOURCES}" -eq 1 ]]; then
 fi
 
 if [[ "${RUN_EXIT}" -eq 0 ]]; then
-  send_workflow_email "[daedalus] workflow: completed" \
-    "Daedalus downstream workflow completed successfully at $(date -Is)\nProject: ${DAEDALUS_ROOT}"
+  send_workflow_email "[daedalus] Sprocket downstream: completed" \
+    "Sprocket downstream workflow completed successfully at $(date -Is)
+Project: ${DAEDALUS_ROOT}"
 else
-  send_workflow_email "[daedalus] workflow: failed" \
-    "Daedalus downstream workflow failed (exit ${RUN_EXIT}) at $(date -Is)\nProject: ${DAEDALUS_ROOT}\nCheck: ${DAEDALUS_ROOT}/out/runs/${WORKFLOW_NAME}/"
+  send_workflow_email "[daedalus] Sprocket downstream: failed" \
+    "Sprocket downstream workflow failed (exit ${RUN_EXIT}) at $(date -Is)
+Project: ${DAEDALUS_ROOT}
+Check: ${DAEDALUS_ROOT}/out/runs/${WORKFLOW_NAME}/"
 fi
 exit "${RUN_EXIT}"

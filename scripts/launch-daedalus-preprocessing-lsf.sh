@@ -41,9 +41,16 @@ export DAEDALUS_ROOT
 RUN_FASTQC="$(daedalus_yaml_workflow_toggle run_fastqc)"
 RUN_CELLRANGER="$(daedalus_yaml_workflow_toggle run_cellranger)"
 NOTIFY_EMAIL="$(daedalus_yaml_get CONTACT_EMAIL 2>/dev/null || echo "user.name@stjude.org")"
+NOTIFY_SCRIPT="${SCRIPT_DIR}/daedalus-notify-email.sh"
+# Match launch_full_pipeline.sh: LSF mail on job start (-B) and completion (-N).
+NOTIFY_ON_START="${DAEDALUS_LSF_NOTIFY_ON_START:-1}"
 
 FASTQC_DIR="${DAEDALUS_ROOT}/analyses/fastqc-analysis"
 CELLRANGER_DIR="${DAEDALUS_ROOT}/analyses/cellranger-analysis"
+
+daedalus_notify() {
+  bash "${NOTIFY_SCRIPT}" --to "${NOTIFY_EMAIL}" --subject "$1" --body "$2" || true
+}
 
 extract_job_id() { awk '{print $2}' | sed 's/[<>]//g'; }
 
@@ -53,11 +60,16 @@ submit_job() {
   local _dep="${3:-}"
   local _label="${4:-job}"
 
+  local bsub_notify=(-N -u "${NOTIFY_EMAIL}")
+  if [[ "${NOTIFY_ON_START}" == "1" ]]; then
+    bsub_notify=(-B "${bsub_notify[@]}")
+  fi
+
   mkdir -p "${_cwd}"
   local out
   if ! out=$(bsub -cwd "${_cwd}" \
                   ${_dep:+-w "${_dep}"} \
-                  -N -u "${NOTIFY_EMAIL}" \
+                  "${bsub_notify[@]}" \
                   < "${_in}" 2>&1); then
     echo "ERROR: bsub failed for ${_label} in ${_cwd}" >&2
     echo "${out}" >&2
@@ -106,6 +118,11 @@ if [[ "${RUN_FASTQC}" == "TRUE" ]]; then
     echo "==> Submitting FastQC (static lsf-script.txt)..."
     JOB_FASTQC="$(submit_job "${FASTQC_DIR}" "${FASTQC_DIR}/lsf-script.txt" "" "FastQC")"
     echo "  FastQC job: ${JOB_FASTQC}"
+    daedalus_notify "[daedalus] FastQC: submitted" \
+      "FastQC LSF job ${JOB_FASTQC} submitted at $(date -Is)
+Project: ${DAEDALUS_ROOT}
+Module: analyses/fastqc-analysis
+LSF also mails ${NOTIFY_EMAIL} on start/completion when cluster mail is enabled."
   fi
 else
   echo "==> FastQC: disabled (workflow_profile.run_fastqc)"
@@ -122,9 +139,11 @@ if [[ "${RUN_CELLRANGER}" == "TRUE" ]]; then
     echo "==> Submitting Cell Ranger (submit-multiple-jobs.sh; parallel with FastQC)..."
     JOB_CELLRANGER="$(submit_job_cellranger "${CELLRANGER_DIR}" "${CELLRANGER_DIR}/submit-multiple-jobs.sh" "" "CellRanger")"
     echo "  Cell Ranger waiter job: ${JOB_CELLRANGER}"
-    if command -v mail >/dev/null 2>&1; then
-      echo "  Cell Ranger waiter = ${JOB_CELLRANGER}" | mail -s "Cell Ranger submitted (daedalus)" "${NOTIFY_EMAIL}" || true
-    fi
+    daedalus_notify "[daedalus] Cell Ranger: submitted" \
+      "Cell Ranger LSF waiter job ${JOB_CELLRANGER} submitted at $(date -Is)
+Project: ${DAEDALUS_ROOT}
+Module: analyses/cellranger-analysis
+Downstream Sprocket steps wait on this waiter job completing."
   fi
 else
   echo "==> Cell Ranger: disabled (workflow_profile.run_cellranger)"
