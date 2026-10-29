@@ -42,8 +42,9 @@ RUN_FASTQC="$(daedalus_yaml_workflow_toggle run_fastqc)"
 RUN_CELLRANGER="$(daedalus_yaml_workflow_toggle run_cellranger)"
 NOTIFY_EMAIL="$(daedalus_yaml_get CONTACT_EMAIL 2>/dev/null || echo "user.name@stjude.org")"
 NOTIFY_SCRIPT="${SCRIPT_DIR}/daedalus-notify-email.sh"
-# Match launch_full_pipeline.sh: LSF mail on job start (-B) and completion (-N).
-NOTIFY_ON_START="${DAEDALUS_LSF_NOTIFY_ON_START:-1}"
+# LSF completion/failure mail (-N). Start mail (-B) is off by default to avoid duplicating
+# daedalus-notify-email.sh on submit. Set DAEDALUS_LSF_NOTIFY_ON_START=1 to also get LSF -B.
+NOTIFY_ON_START="${DAEDALUS_LSF_NOTIFY_ON_START:-0}"
 
 FASTQC_DIR="${DAEDALUS_ROOT}/analyses/fastqc-analysis"
 CELLRANGER_DIR="${DAEDALUS_ROOT}/analyses/cellranger-analysis"
@@ -122,7 +123,7 @@ if [[ "${RUN_FASTQC}" == "TRUE" ]]; then
       "FastQC LSF job ${JOB_FASTQC} submitted at $(date -Is)
 Project: ${DAEDALUS_ROOT}
 Module: analyses/fastqc-analysis
-LSF also mails ${NOTIFY_EMAIL} on start/completion when cluster mail is enabled."
+You will get a separate LSF email when the job finishes (-N)."
   fi
 else
   echo "==> FastQC: disabled (workflow_profile.run_fastqc)"

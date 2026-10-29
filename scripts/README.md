@@ -389,7 +389,7 @@ Notifications go to **`CONTACT_EMAIL`** in `project_parameters.Config.yaml` (pas
 | When | How |
 |------|-----|
 | Pipeline `--submit` started | `launch-daedalus-sprocket.sh` → `daedalus-notify-email.sh` (immediate) |
-| FastQC / Cell Ranger submitted | `launch-daedalus-preprocessing-lsf.sh` → `daedalus-notify-email.sh`; LSF `-B`/`-N` to `CONTACT_EMAIL` |
+| FastQC / Cell Ranger submitted | `daedalus-notify-email.sh` on submit; LSF `-N` to `CONTACT_EMAIL` when the job ends (optional `-B` via `DAEDALUS_LSF_NOTIFY_ON_START=1`) |
 | Cell Ranger chain finished (before Sprocket) | Launch script after `bwait` on waiter job |
 | Sprocket downstream submitted | Launch script just before `sprocket run` |
 | Each downstream module started | `monitor-daedalus-task-emails.sh` when LSF `job_id` appears for that module |
