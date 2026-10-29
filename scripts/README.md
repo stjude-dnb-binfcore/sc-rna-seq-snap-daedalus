@@ -34,6 +34,11 @@ Run from the **project root** (parent of this `scripts/` folder). With no flags,
 the launcher refreshes generated YAML/inputs, checks the static WDL, and
 validates Sprocket inputs—it does **not** submit LSF jobs.
 
+If `workflow_profile.run_cellranger: true` and alignments are **not** on disk yet,
+dry-run still plans downstream resources from metadata (baseline cells/sample) and
+**skips** `sprocket validate` until outputs exist. Use `--submit` to run Cell Ranger,
+wait on the LSF waiter, then estimate and launch Sprocket automatically.
+
 ```bash
 bash launch-daedalus-downstream.sh
 ```

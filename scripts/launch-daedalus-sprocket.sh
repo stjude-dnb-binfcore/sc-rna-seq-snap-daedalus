@@ -101,6 +101,13 @@ if [[ "${RUN_FASTQC}" == "TRUE" || "${RUN_CELLRANGER}" == "TRUE" ]]; then
         exit 1
       fi
       echo "==> Cell Ranger complete"
+      DATA_DIR="$(daedalus_yaml_get data_dir 2>/dev/null || true)"
+      if [[ -z "${DATA_DIR}" ]] || ! compgen -G "${DATA_DIR}/*/outs/metrics_summary.csv" >/dev/null 2>&1; then
+        echo "Cell Ranger waiter finished but no metrics_summary.csv under data_dir:" >&2
+        echo "  ${DATA_DIR:-<unset>}" >&2
+        echo "Check analyses/cellranger-analysis/j1.err and j2.err" >&2
+        exit 1
+      fi
     fi
   fi
 fi
@@ -115,10 +122,15 @@ if [[ "${DOWNSTREAM_ENABLED}" -eq 0 ]]; then
 fi
 
 echo "==> Estimating downstream resources"
+ESTIMATE_EXTRA=()
+if [[ "${DRY_RUN}" -eq 1 && "${RUN_CELLRANGER}" == "TRUE" ]]; then
+  ESTIMATE_EXTRA=(--allow-pending-cellranger)
+fi
 Rscript "${SCRIPT_DIR}/estimate-daedalus-downstream-resources.R" \
   --daedalus-root "${DAEDALUS_ROOT}" \
   --output "${GENERATED}" \
-  "${UPDATE_FLAG[@]}"
+  "${UPDATE_FLAG[@]}" \
+  "${ESTIMATE_EXTRA[@]}"
 
 [[ -z "${INPUTS}" ]] && INPUTS="${SPROCKET_INPUTS}"
 
@@ -148,8 +160,19 @@ send_workflow_email() {
 echo "==> Checking WDL"
 sprocket check "${WORKFLOW}"
 
-echo "==> Validating inputs (${INPUTS})"
-sprocket validate "${WORKFLOW}" @"${INPUTS}" --config "${CONFIG}"
+SKIP_VALIDATE=0
+if [[ "${DRY_RUN}" -eq 1 && "${RUN_CELLRANGER}" == "TRUE" && -f "${GENERATED}" ]]; then
+  if grep -q '"pending_cellranger"[[:space:]]*:[[:space:]]*true' "${GENERATED}" 2>/dev/null; then
+    SKIP_VALIDATE=1
+    echo "==> Skipping sprocket validate (Cell Ranger outputs not on disk yet; planned via run_cellranger)"
+    echo "    Run bash launch-daedalus-downstream.sh --submit to align, wait, then validate and run downstream."
+  fi
+fi
+
+if [[ "${SKIP_VALIDATE}" -eq 0 ]]; then
+  echo "==> Validating inputs (${INPUTS})"
+  sprocket validate "${WORKFLOW}" @"${INPUTS}" --config "${CONFIG}"
+fi
 
 [[ "${DRY_RUN}" -eq 1 ]] && { echo "Dry run complete."; exit 0; }
 
