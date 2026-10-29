@@ -25,7 +25,7 @@ Before launching downstream:
 ## Load modules
 
 ```bash
-module load sprocket R
+module load sprocket R 
 ```
 
 ## Dry run — validate files and refresh inputs
@@ -35,6 +35,7 @@ the launcher refreshes generated YAML/inputs, checks the static WDL, and
 validates Sprocket inputs—it does **not** submit LSF jobs.
 
 ```bash
+cd sc-rna-seq-snap-daedalus   # daedalus root (repo or deployed copy)
 bash launch-daedalus-downstream.sh
 ```
 
@@ -45,24 +46,37 @@ To submit after a successful dry run, add `--submit` (see
 
 ## Safe ways to launch downstream analysis
 
+Dry-run first (`bash launch-daedalus-downstream.sh`), then submit only after
+`sprocket validate` succeeds.
+
+Sprocket runs each **module** on LSF compute nodes. The **launcher** on the node
+where you started it stays alive until `sprocket run` finishes (task email
+monitor and resource collection). `nohup` keeps that launcher running after you
+log out—you still need to monitor progress (see below).
+
 ### Option 1 — nohup in the background (recommended)
 
 ```bash
+cd sc-rna-seq-snap-daedalus
+module load sprocket R
+
 nohup bash launch-daedalus-downstream.sh --submit > daedalus-launch.log 2>&1 &
-echo $!   # note the PID
-```
-
-Monitor progress:
-
-```bash
+echo $!   # note the launcher PID
 tail -f daedalus-launch.log
 ```
 
-or
+Do **not** treat `nohup ... &` as “submit and forget” without monitoring: if the
+launcher dies early, downstream LSF jobs may already be running while emails and
+resource collection never finish.
 
-```bash
-tail -f out/runs/daedalus_from_cellranger/_latest/calls/upstream/attempts/0/stderr
-```
+### Monitoring (any option)
+
+| What | How |
+|------|-----|
+| LSF module jobs | `bjobs -u $USER` |
+| Launcher / Sprocket | `daedalus-launch.log`, or `out/runs/daedalus_from_cellranger/` |
+| Email | `CONTACT_EMAIL` in YAML — workflow and per-module notifications |
+| Task stderr (example) | `tail -f out/runs/daedalus_from_cellranger/<run_id>/calls/<task>/attempts/0/stderr` |
 
 Every submission disables Sprocket call caching because shared directories are
 passed as `String` paths, so changes to their contents are not represented in
@@ -70,11 +84,15 @@ the cache key.
 
 ### Option 2 — tmux or screen
 
-```bash
-tmux new -s daedalus
-module load sprocket R singularity
-bash launch-daedalus-downstream.sh
+Same flow as Option 1, but attach/detach instead of a log file—useful if you
+want a live terminal without `tail -f`.
 
+```bash
+cd sc-rna-seq-snap-daedalus
+module load sprocket R
+
+tmux new -s daedalus
+bash launch-daedalus-downstream.sh
 bash launch-daedalus-downstream.sh --submit
 # Detach: Ctrl+b then d
 # Reattach later: tmux attach -t daedalus
@@ -118,7 +136,7 @@ Each run performs these steps in order:
 | 2. Render Sprocket config | `scripts/render-sprocket-config.sh` | `inputs/sprocket.generated.toml` |
 | 3. Check WDL | `sprocket check workflows/daedalus_from_cellranger.wdl` | — |
 | 4. Validate inputs | `sprocket validate workflows/daedalus_from_cellranger.wdl @inputs/sprocket_inputs.json --config inputs/sprocket.generated.toml` | — |
-| 5. Submit (if not dry-run) | `sprocket run ... --output-dir out --no-call-cache` | LSF jobs |
+| 5. Submit (if not dry-run) | `sprocket run ... --output-dir <daedalus-root>/out --no-call-cache` (set explicitly in `launch-daedalus-sprocket.sh`) | LSF jobs under `<daedalus-root>/out/` |
 | 6. Collect resource usage (after `--submit` only) | `scripts/collect-resource-usage.sh --daedalus-root . --latest --json` | `out/resource_usage/` |
 
 The resource estimator:

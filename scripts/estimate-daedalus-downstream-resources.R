@@ -127,13 +127,59 @@ count_metadata_samples <- function(metadata_path) {
   length(unique(trimws(as.character(md$ID))))
 }
 
+CELLRANGER_ESTIMATED_CELLS_COLUMN <- "Estimated Number of Cells"
+
+#' Parse Cell Ranger metrics_summary.csv (matches tasks/pre_cellranger.wdl parse_cellranger_metrics).
+#' Returns list(cells = integer or NA, status = character).
 parse_cellranger_metrics <- function(metrics_path) {
-  if (!file.exists(metrics_path)) return(NA_integer_)
-  lines <- readLines(metrics_path, warn = FALSE)
-  if (length(lines) < 2L) return(NA_integer_)
-  val <- sub('^"([^"]*)".*', "\\1", lines[[2L]])
-  val <- gsub(",", "", val)
-  suppressWarnings(as.integer(val))
+  missing <- function(status) list(cells = NA_integer_, status = status)
+  if (!file.exists(metrics_path)) return(missing("missing_file"))
+
+  tryCatch(
+    {
+      metrics <- read.csv(metrics_path, check.names = FALSE, stringsAsFactors = FALSE)
+      column <- CELLRANGER_ESTIMATED_CELLS_COLUMN
+      if (sum(names(metrics) == column) != 1L) return(missing("missing_column"))
+      if (nrow(metrics) != 1L) return(missing("invalid_row_count"))
+
+      raw <- gsub(",", "", trimws(as.character(metrics[[column]][[1L]])), fixed = TRUE)
+      value <- suppressWarnings(as.numeric(raw))
+      if (is.na(value) || !is.finite(value) || value != as.integer(value) || value < 1L) {
+        return(list(cells = NA_integer_, status = "invalid_value", raw = raw))
+      }
+      list(cells = as.integer(value), status = "ok")
+    },
+    error = function(error) missing("parse_error")
+  )
+}
+
+cellranger_metrics_warning <- function(sample_id, metrics_path, parsed) {
+  msg <- switch(
+    parsed$status,
+    missing_file = sprintf(
+      "Cell Ranger metrics missing for sample %s: %s",
+      sample_id, metrics_path
+    ),
+    parse_error = sprintf(
+      "Could not parse metrics CSV for sample %s: %s",
+      sample_id, metrics_path
+    ),
+    missing_column = sprintf(
+      "Sample %s metrics CSV has no '%s' column: %s",
+      sample_id, CELLRANGER_ESTIMATED_CELLS_COLUMN, metrics_path
+    ),
+    invalid_row_count = sprintf(
+      "Sample %s metrics CSV must have exactly one data row: %s",
+      sample_id, metrics_path
+    ),
+    invalid_value = sprintf(
+      "Sample %s has invalid '%s' in %s: %s",
+      sample_id, CELLRANGER_ESTIMATED_CELLS_COLUMN, metrics_path,
+      parsed$raw %||% "(empty)"
+    ),
+    sprintf("Cell Ranger metrics unusable for sample %s: %s", sample_id, metrics_path)
+  )
+  warning(msg, call. = FALSE)
 }
 
 #' Read Cell Ranger metrics_summary.csv under data_dir (one subdir per sample ID).
@@ -154,8 +200,12 @@ estimate_cells_from_cellranger <- function(data_dir) {
   for (d in sample_dirs) {
     sample_id <- basename(d)
     metrics <- file.path(d, "outs", "metrics_summary.csv")
-    n <- parse_cellranger_metrics(metrics)
-    if (!is.na(n)) per_sample[[sample_id]] <- n
+    parsed <- parse_cellranger_metrics(metrics)
+    if (identical(parsed$status, "ok")) {
+      per_sample[[sample_id]] <- parsed$cells
+    } else {
+      cellranger_metrics_warning(sample_id, metrics, parsed)
+    }
   }
 
   if (length(per_sample) == 0L) {
