@@ -68,7 +68,51 @@ UPDATE_FLAG=()
 [[ "${UPDATE_YAML}" -eq 1 ]] && UPDATE_FLAG=(--update-yaml)
 [[ "${YAML_IN_PLACE}" -eq 1 ]] && UPDATE_FLAG+=(--yaml-in-place)
 
+PREPROCESS_SCRIPT="${SCRIPT_DIR}/launch-daedalus-preprocessing-lsf.sh"
+# shellcheck source=daedalus-read-config.sh
+source "${SCRIPT_DIR}/daedalus-read-config.sh"
+export DAEDALUS_ROOT
+
+RUN_FASTQC="$(daedalus_yaml_workflow_toggle run_fastqc)"
+RUN_CELLRANGER="$(daedalus_yaml_workflow_toggle run_cellranger)"
+DOWNSTREAM_ENABLED=0
+if daedalus_any_downstream_module_enabled; then
+  DOWNSTREAM_ENABLED=1
+fi
+
 echo "==> Using static WDL: ${WORKFLOW}"
+
+if [[ "${RUN_FASTQC}" == "TRUE" || "${RUN_CELLRANGER}" == "TRUE" ]]; then
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    bash "${PREPROCESS_SCRIPT}" --dry-run
+  else
+    if ! command -v bsub >/dev/null 2>&1; then
+      echo "bsub not found; required when workflow_profile.run_fastqc or run_cellranger is true" >&2
+      exit 1
+    fi
+    echo "==> Preprocessing (FastQC / Cell Ranger via static LSF scripts)"
+    PREPROCESS_OUT="$(bash "${PREPROCESS_SCRIPT}" --submit)"
+    echo "${PREPROCESS_OUT}"
+    CELLRANGER_WAITER_JOB="$(echo "${PREPROCESS_OUT}" | sed -n 's/^CELLRANGER_WAITER_JOB=//p' | tail -n 1)"
+    if [[ "${RUN_CELLRANGER}" == "TRUE" && -n "${CELLRANGER_WAITER_JOB}" ]]; then
+      echo "==> Waiting for Cell Ranger LSF chain (waiter job ${CELLRANGER_WAITER_JOB})"
+      if ! bwait -w "done(${CELLRANGER_WAITER_JOB})"; then
+        echo "Cell Ranger waiter job ${CELLRANGER_WAITER_JOB} did not complete successfully" >&2
+        exit 1
+      fi
+      echo "==> Cell Ranger complete"
+    fi
+  fi
+fi
+
+if [[ "${DOWNSTREAM_ENABLED}" -eq 0 ]]; then
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    echo "Dry run complete (no downstream modules enabled in workflow_profile)."
+  else
+    echo "Preprocessing submitted; no downstream modules enabled in workflow_profile."
+  fi
+  exit 0
+fi
 
 echo "==> Estimating downstream resources"
 Rscript "${SCRIPT_DIR}/estimate-daedalus-downstream-resources.R" \

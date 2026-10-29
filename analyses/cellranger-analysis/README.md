@@ -44,13 +44,21 @@ Cell Ranger will automatically recognize these as multiple libraries for the sam
 
 ## Run module on HPC
 
-To run all of the scripts in this module sequentially on an interactive session on HPC, please run the following command from an interactive compute node:
+### Standalone (original — outside Sprocket / daedalus)
 
-```
+From **`analyses/cellranger-analysis`** on an interactive session:
+
+```bash
 bsub < submit-multiple-jobs.sh
 ```
 
-Please note that this will run the analysis module outside of the container while submitting lsf job on HPC. This is currently the only option of running the `cellranger-analysis` module. By default, we are using `python/3.9.9` and `cellranger/8.0.1` as available on St Jude HPC.
+LSF runs `submit-multiple-jobs.sh` as a job (the `#BSUB` lines at the top of that file set queue, memory, and logs). That job submits the internal `j1` alignments and the `waiter.sh` → `j2` summary chain. No daedalus or Sprocket launcher is involved.
+
+### Via daedalus or `launch_full_pipeline.sh`
+
+Those launchers call the same script from a **login node** (with `DAEDALUS_LSF_LAUNCHER_MODE=1` or a plain `bash submit-multiple-jobs.sh`) so they can capture the **waiter** job ID and chain upstream analysis. You do not need `bsub < submit-multiple-jobs.sh` when using those entry points.
+
+Please note that Cell Ranger runs outside of the Seurat container while submitting LSF jobs on HPC. By default, we use `python/3.9.9` and `cellranger/8.0.1` as available on St Jude HPC.
 
 
 ## Folder content

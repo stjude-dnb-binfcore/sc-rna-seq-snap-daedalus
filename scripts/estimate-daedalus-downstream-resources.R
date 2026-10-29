@@ -228,6 +228,8 @@ populate_project_paths <- function(cfg, daedalus_root) {
 workflow_toggles <- function(cfg) {
   wp <- cfg$workflow_profile %||% list()
   list(
+    run_fastqc = isTRUE(wp$run_fastqc %||% FALSE),
+    run_cellranger = isTRUE(wp$run_cellranger %||% FALSE),
     run_upstream = isTRUE(wp$run_upstream %||% FALSE),
     run_integrative = isTRUE(wp$run_integrative %||% FALSE),
     run_cluster = isTRUE(wp$run_cluster %||% FALSE),
@@ -253,7 +255,18 @@ WORKFLOW_MODULE_RESOURCES <- list(
   list(toggle = "run_project_updates", label = "project_updates", future = FALSE)
 )
 
+print_workflow_profile_preprocessing <- function(toggles) {
+  pre <- character(0L)
+  if (isTRUE(toggles$run_fastqc)) pre <- c(pre, "fastqc (static LSF)")
+  if (isTRUE(toggles$run_cellranger)) pre <- c(pre, "cellranger (static LSF)")
+  if (length(pre)) {
+    cat("  workflow_profile preprocessing:", paste(pre, collapse = ", "), "\n")
+  }
+  invisible(NULL)
+}
+
 print_workflow_profile_resources <- function(toggles, res) {
+  print_workflow_profile_preprocessing(toggles)
   enabled <- Filter(function(m) isTRUE(toggles[[m$toggle]]), WORKFLOW_MODULE_RESOURCES)
   if (!length(enabled)) {
     cat("  workflow_profile: (no downstream modules enabled)\n")

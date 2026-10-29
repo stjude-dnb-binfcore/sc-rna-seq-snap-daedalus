@@ -16,7 +16,7 @@ those toggles into `inputs/sprocket_inputs.json` and writes scaled resources to
 
 Before launching downstream:
 
-1. **Cell Ranger** is complete under `analyses/cellranger-analysis/results/02_cellranger_count/<parameters>/<sample>/outs`.
+1. **Cell Ranger** is complete under `analyses/cellranger-analysis/results/02_cellranger_count/<parameters>/<sample>/outs`, **or** set `workflow_profile.run_cellranger: true` so `--submit` runs alignment first (static LSF scripts; not resource-scaled).
 2. **Sample metadata** exists at `data/project_metadata/project_metadata.tsv`.
 3. Metadata `ID` values exactly match the Cell Ranger sample directory names.
 4. **Apptainer/Singularity image** is configured at `resource_profile.container_image` in `project_parameters.Config.yaml` (default: `<root_dir>/rstudio_4.4.0_seurat_4.4.0_latest.sif`).
@@ -164,7 +164,7 @@ The pipeline supports **three ways to run** downstream modules. The config file 
 
 - **WDL/Sprocket** sets `DAEDALUS_CONFIG_FILE` in `tasks/post_cellranger_required.wdl` and `tasks/post_cellranger_optional.wdl` to the generated overlay. Module scripts detect this and load the generated YAML (scaled resources + paths refreshed at launch).
 - **All other run modes** do not set `DAEDALUS_CONFIG_FILE`, so modules load the master template `project_parameters.Config.yaml`.
-- **FastQC and Cell Ranger** remain outside this WDL workflow and continue to read `project_parameters.Config.yaml` directly.
+- **FastQC and Cell Ranger** are outside the WDL graph but can be turned on with `workflow_profile.run_fastqc` / `run_cellranger`. They use static LSF scripts (`analyses/fastqc-analysis/lsf-script.txt`, `analyses/cellranger-analysis/submit-multiple-jobs.sh`) and read `project_parameters.Config.yaml` directly (not the generated overlay). Cell Ranger can still be run **standalone** with `cd analyses/cellranger-analysis && bsub < submit-multiple-jobs.sh` — no daedalus launcher required.
 
 ### Helpers (R and bash)
 
@@ -219,15 +219,34 @@ This is your main configuration file. The launcher **does not overwrite** it by 
 | Section | What to set |
 |---------|-------------|
 | Project paths | `root_dir`, `data_dir`, `metadata_dir` — use absolute paths for your project (estimator resolves these on each run). |
-| `workflow_profile` | Turn modules on/off (`run_upstream`, `run_integrative`, `run_cluster`, etc.). |
+| `workflow_profile` | Turn modules on/off (`run_fastqc`, `run_cellranger`, `run_upstream`, `run_integrative`, `run_cluster`, etc.). Preprocessing toggles do not change estimator output. |
 | `resource_profile.container_image` | Full path to the Seurat Apptainer `.sif` if not at `<root_dir>/rstudio_4.4.0_seurat_4.4.0_latest.sif`. |
 | Biology / QC | Upstream filters (`min_genes`, `min_count`, `condition_value*`), integration method, clustering resolution, annotation method, etc. |
 | Module-specific | Sections for integrative, cluster, contamination, cell-types, clone-phylogeny, de-go, rshiny — see inline comments in the YAML. |
 
-**Example — upstream only:**
+**Example — align + upstream (FastQC and Cell Ranger in parallel, then Sprocket):**
 
 ```yaml
 workflow_profile:
+  run_fastqc: true
+  run_cellranger: true
+  run_upstream: true
+  run_integrative: false
+  run_cluster: false
+  run_contamination_removal: false
+  run_cell_types: false
+  run_clone_phylogeny: false
+  run_de_go: false
+  run_rshiny: false
+  run_project_updates: false
+```
+
+**Example — upstream only (Cell Ranger already complete):**
+
+```yaml
+workflow_profile:
+  run_fastqc: false
+  run_cellranger: false
   run_upstream: true
   run_integrative: false
   run_cluster: false
