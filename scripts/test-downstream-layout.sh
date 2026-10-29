@@ -54,6 +54,14 @@ if ! grep -Eq '^SPROCKET_RUN_FLAGS=.*--no-call-cache' "${DAEDALUS_ROOT}/scripts/
   echo "Launcher does not disable Sprocket call caching" >&2
   exit 1
 fi
+if ! grep -Fq 'SPROCKET_OUTPUT_DIR="${DAEDALUS_ROOT}/out"' "${DAEDALUS_ROOT}/scripts/launch-daedalus-sprocket.sh"; then
+  echo "Launcher does not pin Sprocket output under DAEDALUS_ROOT/out" >&2
+  exit 1
+fi
+if ! grep -Eq 'SPROCKET_RUN_FLAGS=.*--output-dir "\$\{SPROCKET_OUTPUT_DIR\}"' "${DAEDALUS_ROOT}/scripts/launch-daedalus-sprocket.sh"; then
+  echo "Launcher does not pass explicit --output-dir to sprocket run" >&2
+  exit 1
+fi
 if grep -Fq 'generate-daedalus-wdl.R' "${DAEDALUS_ROOT}/scripts/launch-daedalus-sprocket.sh"; then
   echo "Launcher still generates WDL" >&2
   exit 1

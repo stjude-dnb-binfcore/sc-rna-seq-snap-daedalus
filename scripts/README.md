@@ -118,7 +118,7 @@ Each run performs these steps in order:
 | 2. Render Sprocket config | `scripts/render-sprocket-config.sh` | `inputs/sprocket.generated.toml` |
 | 3. Check WDL | `sprocket check workflows/daedalus_from_cellranger.wdl` | — |
 | 4. Validate inputs | `sprocket validate workflows/daedalus_from_cellranger.wdl @inputs/sprocket_inputs.json --config inputs/sprocket.generated.toml` | — |
-| 5. Submit (if not dry-run) | `sprocket run ... --output-dir out --no-call-cache` | LSF jobs |
+| 5. Submit (if not dry-run) | `sprocket run ... --output-dir <daedalus-root>/out --no-call-cache` (set explicitly in `launch-daedalus-sprocket.sh`) | LSF jobs under `<daedalus-root>/out/` |
 | 6. Collect resource usage (after `--submit` only) | `scripts/collect-resource-usage.sh --daedalus-root . --latest --json` | `out/resource_usage/` |
 
 The resource estimator:
