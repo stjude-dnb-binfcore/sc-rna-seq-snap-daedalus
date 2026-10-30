@@ -236,24 +236,34 @@ VALIDATION_EXIT=0
 if [[ "${RUN_EXIT}" -eq 0 && "${DOWNSTREAM_ENABLED}" -eq 1 ]]; then
   if [[ "$(daedalus_yaml_workflow_toggle run_biological_validation)" == "TRUE" ]]; then
     echo "==> Biological validation (output consistency checks)"
+    VALIDATION_JSON="${DAEDALUS_ROOT}/out/validation/biological_validation.json"
+    send_workflow_email "[daedalus] biological validation: started" \
+      "Biological output validation started at $(date -Is)
+Project: ${DAEDALUS_ROOT}
+Report (when finished): ${VALIDATION_JSON}"
     mkdir -p "${DAEDALUS_ROOT}/out/validation"
     set +e
     bash "${SCRIPT_DIR}/daedalus-apptainer-rscript.sh" --daedalus-root "${DAEDALUS_ROOT}" -- \
       "${SCRIPT_DIR}/daedalus_validate_outputs.R" \
       --daedalus-root "${DAEDALUS_ROOT}" \
-      --json "${DAEDALUS_ROOT}/out/validation/biological_validation.json"
+      --json "${VALIDATION_JSON}"
     VALIDATION_EXIT=$?
     set -e
     if [[ "${VALIDATION_EXIT}" -ne 0 ]]; then
       send_workflow_email "[daedalus] biological validation: failed" \
         "Biological validation reported errors at $(date -Is)
 Project: ${DAEDALUS_ROOT}
-Report: ${DAEDALUS_ROOT}/out/validation/biological_validation.json"
+Report: ${VALIDATION_JSON}"
+    else
+      send_workflow_email "[daedalus] biological validation: completed" \
+        "Biological validation passed at $(date -Is)
+Project: ${DAEDALUS_ROOT}
+Report: ${VALIDATION_JSON}"
     fi
   fi
 fi
 
-if [[ "${RUN_EXIT}" -eq 0 ]]; then
+if [[ "${RUN_EXIT}" -eq 0 && "${VALIDATION_EXIT:-0}" -eq 0 ]]; then
   send_workflow_email "[daedalus] Daedalus downstream: completed" \
     "Daedalus downstream workflow completed successfully at $(date -Is)
 Project: ${DAEDALUS_ROOT}

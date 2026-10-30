@@ -396,6 +396,7 @@ Notifications go to **`CONTACT_EMAIL`** in `project_parameters.Config.yaml` (pas
 | Each downstream module started | `monitor-daedalus-task-emails.sh` when LSF `job_id` appears for that module |
 | Each downstream module completed / failed | Monitor when LSF job reaches `DONE` / `EXIT` |
 | Daedalus downstream finished / failed | Launch script after `sprocket run` exits (`[daedalus] Daedalus downstream: completed` or `: failed`) |
+| Biological validation started / completed / failed | `launch-daedalus-sprocket.sh` after downstream Sprocket succeeds, when `workflow_profile.run_biological_validation: true` |
 | Missed module complete (catch-up) | `bash scripts/monitor-daedalus-task-emails.sh --daedalus-root . --to CONTACT_EMAIL --finalize-only` |
 
 Module emails use **`CONTACT_EMAIL`** from `project_parameters.Config.yaml`. The monitor runs in the background while Sprocket executes and polls `out/runs/daedalus_from_cellranger/_latest/calls/`.

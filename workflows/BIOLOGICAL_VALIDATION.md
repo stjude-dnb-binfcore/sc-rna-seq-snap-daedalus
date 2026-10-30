@@ -4,6 +4,10 @@ After a successful **Daedalus downstream** Sprocket run, the launcher can run
 `scripts/daedalus_validate_outputs.R` when `workflow_profile.run_biological_validation`
 is `true` (default).
 
+When enabled, `launch-daedalus-sprocket.sh` emails **`CONTACT_EMAIL`** on validation
+start, pass (`[daedalus] biological validation: completed`), or failure. The downstream
+“completed” email is skipped if validation fails (Sprocket still succeeded).
+
 ## What it checks
 
 | Check | When | Purpose |
