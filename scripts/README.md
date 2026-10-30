@@ -391,10 +391,10 @@ Notifications go to **`CONTACT_EMAIL`** in `project_parameters.Config.yaml` (pas
 | Pipeline `--submit` started | `launch-daedalus-sprocket.sh` → `daedalus-notify-email.sh` (immediate) |
 | FastQC / Cell Ranger submitted | `daedalus-notify-email.sh` on submit; LSF `-N` to `CONTACT_EMAIL` when the job ends (optional `-B` via `DAEDALUS_LSF_NOTIFY_ON_START=1`) |
 | Cell Ranger chain finished (before Sprocket) | Launch script after `bwait` on waiter job |
-| Sprocket downstream submitted | Launch script just before `sprocket run` |
+| Daedalus downstream submitted | Launch script just before `sprocket run` (subject: `[daedalus] Daedalus downstream: submitted`) |
 | Each downstream module started | `monitor-daedalus-task-emails.sh` when LSF `job_id` appears for that module |
 | Each downstream module completed / failed | Monitor when LSF job reaches `DONE` / `EXIT` |
-| Sprocket run finished / failed | Launch script after `sprocket run` exits (subject: `[daedalus] workflow: completed`) |
+| Daedalus downstream finished / failed | Launch script after `sprocket run` exits (`[daedalus] Daedalus downstream: completed` or `: failed`) |
 | Missed module complete (catch-up) | `bash scripts/monitor-daedalus-task-emails.sh --daedalus-root . --to CONTACT_EMAIL --finalize-only` |
 
 Module emails use **`CONTACT_EMAIL`** from `project_parameters.Config.yaml`. The monitor runs in the background while Sprocket executes and polls `out/runs/daedalus_from_cellranger/_latest/calls/`.

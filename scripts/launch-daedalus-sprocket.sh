@@ -199,8 +199,8 @@ fi
 [[ "${DRY_RUN}" -eq 1 ]] && { echo "Dry run complete."; exit 0; }
 
 echo "==> Submitting downstream workflow"
-send_workflow_email "[daedalus] Sprocket downstream: submitted" \
-  "Sprocket downstream workflow submitted at $(date -Is)
+send_workflow_email "[daedalus] Daedalus downstream: submitted" \
+  "Daedalus downstream workflow submitted at $(date -Is)
 Project: ${DAEDALUS_ROOT}
 Config: ${CONFIG}
 Per-module start/complete emails follow via monitor-daedalus-task-emails.sh."
@@ -233,13 +233,13 @@ if [[ "${COLLECT_RESOURCES}" -eq 1 ]]; then
 fi
 
 if [[ "${RUN_EXIT}" -eq 0 ]]; then
-  send_workflow_email "[daedalus] workflow: completed" \
-    "Daedalus workflow completed successfully at $(date -Is)
+  send_workflow_email "[daedalus] Daedalus downstream: completed" \
+    "Daedalus downstream workflow completed successfully at $(date -Is)
 Project: ${DAEDALUS_ROOT}
-(Sprocket downstream finished; preprocessing modules if any were run separately.)"
+(Preprocessing modules FastQC/Cell Ranger, if enabled, run separately before this phase.)"
 else
-  send_workflow_email "[daedalus] workflow: failed" \
-    "Daedalus workflow failed (Sprocket exit ${RUN_EXIT}) at $(date -Is)
+  send_workflow_email "[daedalus] Daedalus downstream: failed" \
+    "Daedalus downstream workflow failed (Sprocket exit ${RUN_EXIT}) at $(date -Is)
 Project: ${DAEDALUS_ROOT}
 Check: ${DAEDALUS_ROOT}/out/runs/${WORKFLOW_NAME}/"
 fi
