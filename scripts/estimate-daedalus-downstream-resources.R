@@ -58,7 +58,8 @@ parse_args <- function(args) {
     update_yaml = FALSE,
     yaml_in_place = FALSE,
     yaml_output = NULL,
-    estimated_cells_per_sample = NULL
+    estimated_cells_per_sample = NULL,
+    allow_pending_cellranger = FALSE
   )
   i <- 1L
   while (i <= length(args)) {
@@ -69,6 +70,7 @@ parse_args <- function(args) {
     else if (key == "--update-yaml") out$update_yaml <- TRUE
     else if (key == "--yaml-in-place") out$yaml_in_place <- TRUE
     else if (key == "--estimated-cells-per-sample") { i <- i + 1L; out$estimated_cells_per_sample <- as.integer(args[[i]]) }
+    else if (key == "--allow-pending-cellranger") out$allow_pending_cellranger <- TRUE
     else stop("Unknown argument: ", key)
     i <- i + 1L
   }
@@ -122,10 +124,17 @@ write_updated_yaml <- function(cfg, master_path, yaml_output, yaml_in_place) {
 
 count_metadata_samples <- function(metadata_path) {
   if (!file.exists(metadata_path)) { warning("Metadata not found — using 8 samples"); return(8L) }
+  length(sample_ids_from_metadata(metadata_path))
+}
+
+sample_ids_from_metadata <- function(metadata_path) {
+  if (!file.exists(metadata_path)) stop("Metadata not found: ", metadata_path)
   md <- suppressWarnings(read.delim(metadata_path, stringsAsFactors = FALSE))
   if (!"ID" %in% colnames(md)) stop("Metadata must contain an ID column")
-  length(unique(trimws(as.character(md$ID))))
+  sort(unique(trimws(as.character(md$ID))))
 }
+
+PLANNED_CELLS_PER_SAMPLE_DEFAULT <- 50000L
 
 parse_cellranger_metrics <- function(metrics_path) {
   if (!file.exists(metrics_path)) return(NA_integer_)
@@ -228,6 +237,8 @@ populate_project_paths <- function(cfg, daedalus_root) {
 workflow_toggles <- function(cfg) {
   wp <- cfg$workflow_profile %||% list()
   list(
+    run_fastqc = isTRUE(wp$run_fastqc %||% FALSE),
+    run_cellranger = isTRUE(wp$run_cellranger %||% FALSE),
     run_upstream = isTRUE(wp$run_upstream %||% FALSE),
     run_integrative = isTRUE(wp$run_integrative %||% FALSE),
     run_cluster = isTRUE(wp$run_cluster %||% FALSE),
@@ -253,7 +264,18 @@ WORKFLOW_MODULE_RESOURCES <- list(
   list(toggle = "run_project_updates", label = "project_updates", future = FALSE)
 )
 
+print_workflow_profile_preprocessing <- function(toggles) {
+  pre <- character(0L)
+  if (isTRUE(toggles$run_fastqc)) pre <- c(pre, "fastqc (static LSF)")
+  if (isTRUE(toggles$run_cellranger)) pre <- c(pre, "cellranger (static LSF)")
+  if (length(pre)) {
+    cat("  workflow_profile preprocessing:", paste(pre, collapse = ", "), "\n")
+  }
+  invisible(NULL)
+}
+
 print_workflow_profile_resources <- function(toggles, res) {
+  print_workflow_profile_preprocessing(toggles)
   enabled <- Filter(function(m) isTRUE(toggles[[m$toggle]]), WORKFLOW_MODULE_RESOURCES)
   if (!length(enabled)) {
     cat("  workflow_profile: (no downstream modules enabled)\n")
@@ -333,8 +355,16 @@ compute_resources <- function(num_samples, estimated_cells_per_sample, total_cel
   res
 }
 
-build_cellranger_inputs <- function(data_dir, cellranger) {
+build_cellranger_inputs <- function(
+  data_dir,
+  cellranger,
+  metadata_path = NULL,
+  allow_pending = FALSE
+) {
   sample_ids <- sort(names(cellranger$per_sample))
+  if (!length(sample_ids) && isTRUE(allow_pending) && !is.null(metadata_path)) {
+    sample_ids <- sample_ids_from_metadata(metadata_path)
+  }
   if (!length(sample_ids)) {
     stop(
       "The static daedalus_from_cellranger workflow requires completed Cell Ranger outputs under:\n  ",
@@ -346,12 +376,17 @@ build_cellranger_inputs <- function(data_dir, cellranger) {
     count_output <- normalizePath(
       file.path(data_dir, sample_id, "outs"),
       winslash = "/",
-      mustWork = TRUE
+      mustWork = FALSE
     )
-    has_matrix <- file.exists(file.path(count_output, "filtered_feature_bc_matrix.h5")) ||
-      dir.exists(file.path(count_output, "filtered_feature_bc_matrix"))
-    if (!has_matrix) {
-      stop("Cell Ranger output has no filtered feature matrix: ", count_output)
+    if (!isTRUE(allow_pending)) {
+      if (!dir.exists(count_output)) {
+        stop("Cell Ranger outs directory not found: ", count_output)
+      }
+      has_matrix <- file.exists(file.path(count_output, "filtered_feature_bc_matrix.h5")) ||
+        dir.exists(file.path(count_output, "filtered_feature_bc_matrix"))
+      if (!has_matrix) {
+        stop("Cell Ranger output has no filtered feature matrix: ", count_output)
+      }
     }
     list(id = sample_id, count_output = count_output)
   }))
@@ -390,7 +425,12 @@ main <- function() {
   paths <- resolve_project_paths(cfg, daedalus_root)
 
   metadata_path <- file.path(paths$metadata_dir, cfg$metadata_file %||% "project_metadata.tsv")
+  toggles <- workflow_toggles(cfg)
   cellranger <- estimate_cells_from_cellranger(paths$data_dir)
+
+  pending_cellranger <- isTRUE(args$allow_pending_cellranger) &&
+    isTRUE(toggles$run_cellranger) &&
+    !identical(cellranger$source, "cellranger_metrics")
 
   num_samples <- cfg$resource_profile$num_samples %||% count_metadata_samples(metadata_path)
   if (is.null(cfg$resource_profile$num_samples) && identical(cellranger$source, "cellranger_metrics")) {
@@ -406,10 +446,22 @@ main <- function() {
       estimated_cells <- cellranger$estimated_cells_per_sample
       total_cells_actual <- cellranger$total_cells
       cell_count_source <- "cellranger_metrics"
+    } else if (pending_cellranger) {
+      estimated_cells <- as.integer(
+        cfg$resource_profile$estimated_cells_per_sample %||% PLANNED_CELLS_PER_SAMPLE_DEFAULT
+      )
+      cell_count_source <- "pending_run_cellranger_yaml"
+      warning(
+        "Cell Ranger metrics not found yet; planning downstream resources from metadata (",
+        num_samples, " samples, ", estimated_cells, " cells/sample). ",
+        "Use --submit to align via workflow_profile.run_cellranger before Sprocket runs.",
+        call. = FALSE
+      )
     } else {
       stop(
         "Could not read Cell Ranger metrics under:\n  ", paths$data_dir, "\n",
-        "Complete Cell Ranger first, or pass --estimated-cells-per-sample N to override.\n",
+        "Complete Cell Ranger first, set workflow_profile.run_cellranger: true and --submit, ",
+        "or pass --estimated-cells-per-sample N to override.\n",
         "Expected: <data_dir>/<sample_id>/outs/metrics_summary.csv"
       )
     }
@@ -425,8 +477,12 @@ main <- function() {
     res$cellranger_observed <- cellranger
     res$total_estimated_cells <- cellranger$total_cells
   }
-  cellranger_inputs <- build_cellranger_inputs(paths$data_dir, cellranger)
-  toggles <- workflow_toggles(cfg)
+  cellranger_inputs <- build_cellranger_inputs(
+    paths$data_dir,
+    cellranger,
+    metadata_path = metadata_path,
+    allow_pending = pending_cellranger
+  )
   container_image <- sprocket_container_uri(paths$container_image, paths$root_dir)
 
   cat("Downstream resource estimate:", paths$root_dir, "\n")
@@ -457,6 +513,7 @@ main <- function() {
 
   notify_email <- cfg$CONTACT_EMAIL %||% "user.name@stjude.org"
   payload <- list(
+    pending_cellranger = pending_cellranger,
     resource_estimate = res,
     sprocket_inputs = build_sprocket_inputs(
       paths$root_dir,
