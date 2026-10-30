@@ -58,7 +58,7 @@ task run_upstream {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB",
+        memory: "~{memory_gb} GB"
         container: container_image
     }
 }
@@ -115,7 +115,7 @@ task run_cluster {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB",
+        memory: "~{memory_gb} GB"
         container: container_image
     }
 }
@@ -166,7 +166,7 @@ task run_cell_types {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB",
+        memory: "~{memory_gb} GB"
         container: container_image
     }
 }
@@ -217,7 +217,7 @@ task run_project_updates {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB",
+        memory: "~{memory_gb} GB"
         container: container_image
     }
 }
@@ -268,7 +268,7 @@ task run_rshiny {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB",
+        memory: "~{memory_gb} GB"
         container: container_image
     }
 }

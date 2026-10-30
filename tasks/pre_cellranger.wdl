@@ -68,7 +68,7 @@ task validate_existing_cellranger {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB",
+        memory: "~{memory_gb} GB"
         container: container_image
     }
 }
@@ -135,7 +135,7 @@ task parse_cellranger_metrics {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB",
+        memory: "~{memory_gb} GB"
         container: container_image
     }
 }
@@ -213,7 +213,7 @@ task write_cellranger_summary {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB",
+        memory: "~{memory_gb} GB"
         container: container_image
     }
 }
@@ -297,7 +297,7 @@ task estimate_downstream_resources {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB",
+        memory: "~{memory_gb} GB"
         container: container_image
     }
 }

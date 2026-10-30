@@ -58,7 +58,7 @@ task run_integrative {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB",
+        memory: "~{memory_gb} GB"
         container: container_image
     }
 }
@@ -115,7 +115,7 @@ task run_contamination_removal {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB",
+        memory: "~{memory_gb} GB"
         container: container_image
     }
 }
@@ -166,7 +166,7 @@ task run_clone_phylogeny {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB",
+        memory: "~{memory_gb} GB"
         container: container_image
     }
 }
@@ -223,7 +223,7 @@ task run_de_go {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB",
+        memory: "~{memory_gb} GB"
         container: container_image
     }
 }
