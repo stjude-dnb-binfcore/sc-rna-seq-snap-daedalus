@@ -9,6 +9,8 @@ on:
       - "tasks/**"
       - "test/fixtures/**"
       - "workflows/**"
+      - "docs/**"
+      - "sprocket.toml"
   push:
     branches:
       - main
@@ -20,6 +22,8 @@ on:
       - "tasks/**"
       - "test/fixtures/**"
       - "workflows/**"
+      - "docs/**"
+      - "sprocket.toml"
   workflow_dispatch:
 permissions:
   contents: read

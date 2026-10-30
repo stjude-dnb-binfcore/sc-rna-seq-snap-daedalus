@@ -19,3 +19,11 @@ executable = "/usr/bin/apptainer"
 
 [run.workflow.scatter]
 concurrency = 200
+
+[doc]
+index_page = "docs/wdl-index.md"
+
+[doc.seo]
+title = "Daedalus WDL reference"
+description = "Sprocket workflows for Daedalus single-cell downstream analysis from Cell Ranger outputs."
+author = "DNB Bioinformatics Core"
