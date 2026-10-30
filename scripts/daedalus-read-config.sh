@@ -81,6 +81,25 @@ daedalus_any_downstream_module_enabled() {
   return 1
 }
 
+# Absolute path to resource_profile.container_image (default: <root>/rstudio_4.4.0_seurat_4.4.0_latest.sif).
+daedalus_container_image() {
+  local daedalus_root
+  daedalus_root="$(daedalus_resolve_root)"
+  _daedalus_yaml_r "
+    rp <- cfg[['resource_profile']]
+    img <- ''
+    if (!is.null(rp) && !is.null(rp[['container_image']])) {
+      img <- as.character(rp[['container_image']][[1L]])
+    }
+    if (!nzchar(img)) {
+      img <- file.path('${daedalus_root}', 'rstudio_4.4.0_seurat_4.4.0_latest.sif')
+    } else if (!startsWith(img, '/')) {
+      img <- file.path('${daedalus_root}', sub('^\\\\./', '', img))
+    }
+    cat(normalizePath(img, winslash='/', mustWork=FALSE))
+  "
+}
+
 # Print a top-level scalar value.
 daedalus_yaml_get() {
   local key="$1"

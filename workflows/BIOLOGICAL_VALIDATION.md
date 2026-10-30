@@ -20,10 +20,16 @@ Warnings (e.g. aggressive filtering) do not fail the run unless you pass `--stri
 ## Manual run
 
 ```bash
-Rscript scripts/daedalus_validate_outputs.R \
-  --daedalus-root /path/to/project \
+module load R   # or apptainer on your cluster
+cd ./sc-rna-seq-snap-daedalus
+
+bash scripts/daedalus-apptainer-rscript.sh --daedalus-root . -- \
+  scripts/daedalus_validate_outputs.R \
+  --daedalus-root . \
   --json out/validation/biological_validation.json
 ```
+
+Plain `Rscript` on the login node still runs file-existence checks but skips cell-count / `ncol` checks when Seurat is missing.
 
 Uses `inputs/project_parameters.generated.yaml` when present, else master Config.
 

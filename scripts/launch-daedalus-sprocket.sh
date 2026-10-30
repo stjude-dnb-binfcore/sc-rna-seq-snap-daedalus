@@ -238,7 +238,8 @@ if [[ "${RUN_EXIT}" -eq 0 && "${DOWNSTREAM_ENABLED}" -eq 1 ]]; then
     echo "==> Biological validation (output consistency checks)"
     mkdir -p "${DAEDALUS_ROOT}/out/validation"
     set +e
-    Rscript "${SCRIPT_DIR}/daedalus_validate_outputs.R" \
+    bash "${SCRIPT_DIR}/daedalus-apptainer-rscript.sh" --daedalus-root "${DAEDALUS_ROOT}" -- \
+      "${SCRIPT_DIR}/daedalus_validate_outputs.R" \
       --daedalus-root "${DAEDALUS_ROOT}" \
       --json "${DAEDALUS_ROOT}/out/validation/biological_validation.json"
     VALIDATION_EXIT=$?
