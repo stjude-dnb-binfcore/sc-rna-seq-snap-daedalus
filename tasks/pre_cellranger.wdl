@@ -4,23 +4,23 @@ import "preprocessing_types.wdl" as types
 
 task validate_existing_cellranger {
     meta {
-        description: "Validate existing Cell Ranger outs directories before downstream analysis."
+        description: "Validate existing Cell Ranger outs directories before downstream analysis.",
         outputs: {
             valid: "True when every sample has required Cell Ranger artifacts."
         }
     }
 
     parameter_meta {
-        sample_ids: "Sample identifiers, one per Cell Ranger output."
-        count_outputs: "Cell Ranger outs directories, aligned with `sample_ids`."
+        sample_ids: "Sample identifiers, one per Cell Ranger output.",
+        count_outputs: "Cell Ranger outs directories, aligned with `sample_ids`.",
         cpu: {
             description: "CPU cores for this validation task.",
             group: "Resource",
-        }
+        },
         memory_gb: {
             description: "Memory request in gigabytes.",
             group: "Resource",
-        }
+        },
         container_image: "Apptainer image URI executed by Sprocket for this task."
     }
 
@@ -68,29 +68,29 @@ task validate_existing_cellranger {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB"
+        memory: "~{memory_gb} GB",
         container: container_image
     }
 }
 
 task parse_cellranger_metrics {
     meta {
-        description: "Parse estimated cell count from a Cell Ranger metrics_summary.csv."
+        description: "Parse estimated cell count from a Cell Ranger metrics_summary.csv.",
         outputs: {
             estimated_cells: "Estimated Number of Cells reported in the metrics file."
         }
     }
 
     parameter_meta {
-        metrics_csv: "Cell Ranger `metrics_summary.csv` for one sample."
+        metrics_csv: "Cell Ranger `metrics_summary.csv` for one sample.",
         cpu: {
             description: "CPU cores for this task.",
             group: "Resource",
-        }
+        },
         memory_gb: {
             description: "Memory request in gigabytes.",
             group: "Resource",
-        }
+        },
         container_image: "Apptainer image URI executed by Sprocket for this task."
     }
 
@@ -135,30 +135,30 @@ task parse_cellranger_metrics {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB"
+        memory: "~{memory_gb} GB",
         container: container_image
     }
 }
 
 task write_cellranger_summary {
     meta {
-        description: "Write a TSV of sample IDs and estimated cell counts."
+        description: "Write a TSV of sample IDs and estimated cell counts.",
         outputs: {
             summary: "Tab-separated summary with columns `sample_id` and `estimated_cells`."
         }
     }
 
     parameter_meta {
-        sample_ids: "Sample identifiers aligned with `estimated_cells`."
-        estimated_cells: "Parsed estimated cell counts, one per sample."
+        sample_ids: "Sample identifiers aligned with `estimated_cells`.",
+        estimated_cells: "Parsed estimated cell counts, one per sample.",
         cpu: {
             description: "CPU cores for this task.",
             group: "Resource",
-        }
+        },
         memory_gb: {
             description: "Memory request in gigabytes.",
             group: "Resource",
-        }
+        },
         container_image: "Apptainer image URI executed by Sprocket for this task."
     }
 
@@ -213,29 +213,29 @@ task write_cellranger_summary {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB"
+        memory: "~{memory_gb} GB",
         container: container_image
     }
 }
 
 task estimate_downstream_resources {
     meta {
-        description: "Compute LSF CPU and memory requests from sample count and total cells."
+        description: "Compute LSF CPU and memory requests from sample count and total cells.",
         outputs: {
             resources: "Per-module CPU, memory, and R future global size limits."
         }
     }
 
     parameter_meta {
-        estimated_cells: "Estimated cell counts across all samples."
+        estimated_cells: "Estimated cell counts across all samples.",
         cpu: {
             description: "CPU cores for this estimation task.",
             group: "Resource",
-        }
+        },
         memory_gb: {
             description: "Memory request in gigabytes.",
             group: "Resource",
-        }
+        },
         container_image: "Apptainer image URI executed by Sprocket for this task."
     }
 
@@ -297,7 +297,7 @@ task estimate_downstream_resources {
 
     requirements {
         cpu: cpu
-        memory: "~{memory_gb} GB"
+        memory: "~{memory_gb} GB",
         container: container_image
     }
 }
