@@ -6,11 +6,11 @@ import "../tasks/pre_cellranger.wdl" as preprocessing
 
 workflow daedalus_from_cellranger {
     meta {
-        description: "Run Daedalus downstream analysis from existing Cell Ranger outputs.",
-        category: "Daedalus",
-        author: "DNB Bioinformatics Core",
-        help: "Optional modules and `after` dependencies are documented in `workflows/MODULE_DEPENDENCIES.md`.",
-        external_help: "https://github.com/stjude-dnb-binfcore/sc-rna-seq-snap-daedalus/blob/main/workflows/MODULE_DEPENDENCIES.md",
+        description: "Run Daedalus downstream analysis from existing Cell Ranger outputs."
+        category: "Daedalus"
+        author: "DNB Bioinformatics Core"
+        help: "Optional modules and `after` dependencies are documented in `workflows/MODULE_DEPENDENCIES.md`."
+        external_help: "https://github.com/stjude-dnb-binfcore/sc-rna-seq-snap-daedalus/blob/main/workflows/MODULE_DEPENDENCIES.md"
         outputs: {
             cellranger_outputs: "Validated Cell Ranger outputs with estimated cell counts per sample.",
             cellranger_summary: "TSV summary of sample IDs and estimated cells.",
@@ -41,59 +41,59 @@ workflow daedalus_from_cellranger {
             de_go_results: "Path to DE/GO results when `run_de_go` is true.",
             project_updates_completion: "Completion flag when project updates are enabled and succeeds.",
             project_updates_results: "Path to project update reports when `run_project_updates` is true.",
-        },
+        }
     }
 
     parameter_meta {
-        cellranger_inputs: "Existing Cell Ranger outs directories, one struct per sample.",
-        resource_estimator_container: "Apptainer image for preprocessing and resource-estimation tasks.",
-        project_root: "Daedalus project root passed to downstream analysis modules.",
-        downstream_container: "Apptainer image for Daedalus R analysis modules.",
-        notify_email: "Email for LSF notifications on downstream module jobs.",
+        cellranger_inputs: "Existing Cell Ranger outs directories, one struct per sample."
+        resource_estimator_container: "Apptainer image for preprocessing and resource-estimation tasks."
+        project_root: "Daedalus project root passed to downstream analysis modules."
+        downstream_container: "Apptainer image for Daedalus R analysis modules."
+        notify_email: "Email for LSF notifications on downstream module jobs."
         run_upstream: {
             description: "Run upstream Seurat QC (`analyses/upstream-analysis`).",
-            group: "Modules",
-        },
+            group: "Modules"
+        }
         run_integrative: {
             description: "Run integrative analysis (`analyses/integrative-analysis`).",
-            group: "Modules",
-        },
+            group: "Modules"
+        }
         run_cluster: {
             description: "Run cluster cell calling (`analyses/cluster-cell-calling`).",
-            group: "Modules",
-        },
+            group: "Modules"
+        }
         run_contamination_removal: {
             description: "Run cell contamination removal analysis.",
-            group: "Modules",
-        },
+            group: "Modules"
+        }
         run_cell_types: {
             description: "Run cell-type annotation (`analyses/cell-types-annotation`).",
-            group: "Modules",
-        },
+            group: "Modules"
+        }
         run_clone_phylogeny: {
             description: "Run clone phylogeny analysis.",
-            group: "Modules",
-        },
+            group: "Modules"
+        }
         run_de_go: {
             description: "Run differential expression and GO analysis.",
-            group: "Modules",
-        },
+            group: "Modules"
+        }
         run_rshiny: {
             description: "Package the R Shiny exploration app.",
-            group: "Modules",
-        },
+            group: "Modules"
+        }
         run_project_updates: {
             description: "Generate cross-module project reports.",
-            group: "Modules",
-        },
+            group: "Modules"
+        }
         resource_estimator_cpu: {
             description: "CPU cores for validation, metrics parsing, and resource estimation.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
         resource_estimator_memory_gb: {
             description: "Memory in GB for preprocessing and resource estimation tasks.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
     }
 
     input {

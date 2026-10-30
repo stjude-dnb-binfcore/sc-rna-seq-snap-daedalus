@@ -8,27 +8,27 @@ version 1.3
 # Workflow email: scripts/daedalus-notify-email.sh from launch-daedalus-sprocket.sh.
 task run_integrative {
     meta {
-        description: "Integrative analysis module",
+        description: "Integrative analysis module"
         outputs: {
             done_flag: "Present when `run-integrative-analysis.sh` completes successfully."
         }
     }
 
     parameter_meta {
-        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`.",
-        container_image: "Apptainer image URI for the downstream R analysis container.",
-        notify_email: "Email address for LSF begin/end notifications.",
+        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`."
+        container_image: "Apptainer image URI for the downstream R analysis container."
+        notify_email: "Email address for LSF begin/end notifications."
         cpu: {
             description: "LSF CPU cores for integrative analysis.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
         memory_gb: {
             description: "LSF memory request in gigabytes.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
         future_globals_gib: {
             description: "R `future.globals.maxSize` limit in gibibytes.",
-            group: "Resource",
+            group: "Resource"
         }
     }
 
@@ -65,27 +65,27 @@ task run_integrative {
 
 task run_contamination_removal {
     meta {
-        description: "Cell contamination removal module",
+        description: "Cell contamination removal module"
         outputs: {
             done_flag: "Present when contamination-removal analysis completes successfully."
         }
     }
 
     parameter_meta {
-        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`.",
-        container_image: "Apptainer image URI for the downstream R analysis container.",
-        notify_email: "Email address for LSF begin/end notifications.",
+        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`."
+        container_image: "Apptainer image URI for the downstream R analysis container."
+        notify_email: "Email address for LSF begin/end notifications."
         cpu: {
             description: "LSF CPU cores for contamination removal.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
         memory_gb: {
             description: "LSF memory request in gigabytes.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
         future_globals_gib: {
             description: "R `future.globals.maxSize` limit in gibibytes.",
-            group: "Resource",
+            group: "Resource"
         }
     }
 
@@ -122,23 +122,23 @@ task run_contamination_removal {
 
 task run_clone_phylogeny {
     meta {
-        description: "Clone phylogeny analysis module",
+        description: "Clone phylogeny analysis module"
         outputs: {
             done_flag: "Present when `run-clone-phylogeny-analysis.sh` completes successfully."
         }
     }
 
     parameter_meta {
-        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`.",
-        container_image: "Apptainer image URI for the downstream R analysis container.",
-        notify_email: "Email address for LSF begin/end notifications.",
+        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`."
+        container_image: "Apptainer image URI for the downstream R analysis container."
+        notify_email: "Email address for LSF begin/end notifications."
         cpu: {
             description: "LSF CPU cores for clone phylogeny analysis.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
         memory_gb: {
             description: "LSF memory request in gigabytes.",
-            group: "Resource",
+            group: "Resource"
         }
     }
 
@@ -173,27 +173,27 @@ task run_clone_phylogeny {
 
 task run_de_go {
     meta {
-        description: "DE and GO analysis module",
+        description: "DE and GO analysis module"
         outputs: {
             done_flag: "Present when `run-de-go-analysis.sh` completes successfully."
         }
     }
 
     parameter_meta {
-        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`.",
-        container_image: "Apptainer image URI for the downstream R analysis container.",
-        notify_email: "Email address for LSF begin/end notifications.",
+        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`."
+        container_image: "Apptainer image URI for the downstream R analysis container."
+        notify_email: "Email address for LSF begin/end notifications."
         cpu: {
             description: "LSF CPU cores for differential expression and GO analysis.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
         memory_gb: {
             description: "LSF memory request in gigabytes.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
         future_globals_gib: {
             description: "R `future.globals.maxSize` limit in gibibytes.",
-            group: "Resource",
+            group: "Resource"
         }
     }
 

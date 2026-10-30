@@ -8,27 +8,27 @@ version 1.3
 # Workflow email: scripts/daedalus-notify-email.sh from launch-daedalus-sprocket.sh.
 task run_upstream {
     meta {
-        description: "Upstream Seurat QC module",
+        description: "Upstream Seurat QC module"
         outputs: {
             done_flag: "Present when `run-upstream-analysis.sh` completes successfully."
         }
     }
 
     parameter_meta {
-        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`.",
-        container_image: "Apptainer image URI for the downstream R analysis container.",
-        notify_email: "Email address for LSF begin/end notifications.",
+        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`."
+        container_image: "Apptainer image URI for the downstream R analysis container."
+        notify_email: "Email address for LSF begin/end notifications."
         cpu: {
             description: "LSF CPU cores for upstream analysis.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
         memory_gb: {
             description: "LSF memory request in gigabytes.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
         future_globals_gib: {
             description: "R `future.globals.maxSize` limit in gibibytes.",
-            group: "Resource",
+            group: "Resource"
         }
     }
 
@@ -65,27 +65,27 @@ task run_upstream {
 
 task run_cluster {
     meta {
-        description: "Cluster cell calling module",
+        description: "Cluster cell calling module"
         outputs: {
             done_flag: "Present when `run-cluster-cell-calling.sh` completes successfully."
         }
     }
 
     parameter_meta {
-        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`.",
-        container_image: "Apptainer image URI for the downstream R analysis container.",
-        notify_email: "Email address for LSF begin/end notifications.",
+        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`."
+        container_image: "Apptainer image URI for the downstream R analysis container."
+        notify_email: "Email address for LSF begin/end notifications."
         cpu: {
             description: "LSF CPU cores for cluster cell calling.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
         memory_gb: {
             description: "LSF memory request in gigabytes.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
         future_globals_gib: {
             description: "R `future.globals.maxSize` limit in gibibytes.",
-            group: "Resource",
+            group: "Resource"
         }
     }
 
@@ -122,23 +122,23 @@ task run_cluster {
 
 task run_cell_types {
     meta {
-        description: "Cell types annotation module",
+        description: "Cell types annotation module"
         outputs: {
             done_flag: "Present when `run-cell-types-annotation.sh` completes successfully."
         }
     }
 
     parameter_meta {
-        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`.",
-        container_image: "Apptainer image URI for the downstream R analysis container.",
-        notify_email: "Email address for LSF begin/end notifications.",
+        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`."
+        container_image: "Apptainer image URI for the downstream R analysis container."
+        notify_email: "Email address for LSF begin/end notifications."
         cpu: {
             description: "LSF CPU cores for cell-type annotation.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
         memory_gb: {
             description: "LSF memory request in gigabytes.",
-            group: "Resource",
+            group: "Resource"
         }
     }
 
@@ -173,23 +173,23 @@ task run_cell_types {
 
 task run_project_updates {
     meta {
-        description: "Project report and cross-module summary module",
+        description: "Project report and cross-module summary module"
         outputs: {
             done_flag: "Present when `run-project-updates.sh` completes successfully."
         }
     }
 
     parameter_meta {
-        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`.",
-        container_image: "Apptainer image URI for the downstream R analysis container.",
-        notify_email: "Email address for LSF begin/end notifications.",
+        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`."
+        container_image: "Apptainer image URI for the downstream R analysis container."
+        notify_email: "Email address for LSF begin/end notifications."
         cpu: {
             description: "LSF CPU cores for project report generation.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
         memory_gb: {
             description: "LSF memory request in gigabytes.",
-            group: "Resource",
+            group: "Resource"
         }
     }
 
@@ -224,23 +224,23 @@ task run_project_updates {
 
 task run_rshiny {
     meta {
-        description: "R Shiny app packaging module",
+        description: "R Shiny app packaging module"
         outputs: {
             done_flag: "Present when `run-rshiny-app.sh` completes successfully."
         }
     }
 
     parameter_meta {
-        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`.",
-        container_image: "Apptainer image URI for the downstream R analysis container.",
-        notify_email: "Email address for LSF begin/end notifications.",
+        daedalus_root: "Daedalus project root containing `analyses/` and `inputs/`."
+        container_image: "Apptainer image URI for the downstream R analysis container."
+        notify_email: "Email address for LSF begin/end notifications."
         cpu: {
             description: "LSF CPU cores for R Shiny app packaging.",
-            group: "Resource",
-        },
+            group: "Resource"
+        }
         memory_gb: {
             description: "LSF memory request in gigabytes.",
-            group: "Resource",
+            group: "Resource"
         }
     }
 
