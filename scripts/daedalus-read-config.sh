@@ -53,6 +53,68 @@ _daedalus_yaml_r() {
   "
 }
 
+# workflow_profile.run_* toggle (TRUE/FALSE).
+daedalus_yaml_workflow_toggle() {
+  local key="$1"
+  _daedalus_yaml_r "
+    wp <- cfg[['workflow_profile']]
+    if (is.null(wp)) wp <- list()
+    val <- wp[['${key}']]
+    if (is.null(val)) {
+      cat('FALSE')
+    } else {
+      cat(ifelse(isTRUE(val), 'TRUE', 'FALSE'))
+    }
+  "
+}
+
+# Any downstream module enabled for WDL/Sprocket (upstream onwards).
+daedalus_any_downstream_module_enabled() {
+  local key val
+  for key in run_upstream run_integrative run_cluster run_contamination_removal \
+             run_cell_types run_clone_phylogeny run_de_go run_rshiny run_project_updates; do
+    val="$(daedalus_yaml_workflow_toggle "${key}")"
+    if [[ "${val}" == "TRUE" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Absolute path to resource_profile.container_image (default: <root>/rstudio_4.4.0_seurat_4.4.0_latest.sif).
+# Prefers inputs/project_parameters.generated.yaml when present (same as validation / Sprocket inputs).
+daedalus_container_image() {
+  local daedalus_root
+  daedalus_root="$(cd "$(daedalus_resolve_root)" && pwd)"
+  _daedalus_yaml_r "
+    daedalus_root <- '${daedalus_root}'
+    default_sif <- file.path(daedalus_root, 'rstudio_4.4.0_seurat_4.4.0_latest.sif')
+    generated <- file.path(daedalus_root, 'inputs', 'project_parameters.generated.yaml')
+    master <- file.path(daedalus_root, 'project_parameters.Config.yaml')
+    config_path <- if (file.exists(generated)) generated else master
+    eff <- yaml::read_yaml(config_path)
+    rp <- eff[['resource_profile']]
+    img <- ''
+    if (!is.null(rp) && !is.null(rp[['container_image']])) {
+      img <- as.character(rp[['container_image']][[1L]])
+    }
+    resolve <- function(path) {
+      if (!nzchar(path)) return('')
+      if (!startsWith(path, '/')) {
+        path <- file.path(daedalus_root, sub('^\\\\./', '', path))
+      }
+      normalizePath(path, winslash='/', mustWork=FALSE)
+    }
+    out <- resolve(img)
+    if (!nzchar(out) || !file.exists(out)) {
+      if (file.exists(default_sif)) {
+        out <- normalizePath(default_sif, winslash='/', mustWork=TRUE)
+      }
+    }
+    cat(out)
+  "
+}
+
 # Print a top-level scalar value.
 daedalus_yaml_get() {
   local key="$1"

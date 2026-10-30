@@ -26,10 +26,13 @@ resource_profile:
   scale_factor: 1
   container_image: "./sc-rna-seq-snap-daedalus/rstudio_4.4.0_seurat_4.4.0_latest.sif"                  # null = <root_dir>/rstudio_4.4.0_seurat_4.4.0_latest.sif
 
-# Which downstream modules to run via WDL/Sprocket (all optional).
-# Toggle any combination; each enabled module waits on the last completed step.
+# Which modules to run (all optional).
+# run_fastqc / run_cellranger use static LSF scripts under analyses/* (not scaled by the estimator).
+# When both are enabled they start in parallel; downstream WDL waits on Cell Ranger's LSF waiter job.
 # Example — upstream only: run_upstream: true, all others false.
 workflow_profile:
+  run_fastqc: false
+  run_cellranger: false
   run_upstream: true
   run_integrative: true
   run_cluster: true
@@ -39,6 +42,7 @@ workflow_profile:
   run_de_go: true
   run_rshiny: true
   run_project_updates: true
+  run_biological_validation: true
 
 # the following parameters are set up as default values and/or are specific for the following modules: 
 # `./analyses/fastqc-analysis`
