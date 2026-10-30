@@ -52,47 +52,47 @@ workflow daedalus_from_cellranger {
         notify_email: "Email for LSF notifications on downstream module jobs."
         run_upstream: {
             description: "Run upstream Seurat QC (`analyses/upstream-analysis`).",
-            group: "Modules"
+            group: "Modules",
         }
         run_integrative: {
             description: "Run integrative analysis (`analyses/integrative-analysis`).",
-            group: "Modules"
+            group: "Modules",
         }
         run_cluster: {
             description: "Run cluster cell calling (`analyses/cluster-cell-calling`).",
-            group: "Modules"
+            group: "Modules",
         }
         run_contamination_removal: {
             description: "Run cell contamination removal analysis.",
-            group: "Modules"
+            group: "Modules",
         }
         run_cell_types: {
             description: "Run cell-type annotation (`analyses/cell-types-annotation`).",
-            group: "Modules"
+            group: "Modules",
         }
         run_clone_phylogeny: {
             description: "Run clone phylogeny analysis.",
-            group: "Modules"
+            group: "Modules",
         }
         run_de_go: {
             description: "Run differential expression and GO analysis.",
-            group: "Modules"
+            group: "Modules",
         }
         run_rshiny: {
             description: "Package the R Shiny exploration app.",
-            group: "Modules"
+            group: "Modules",
         }
         run_project_updates: {
             description: "Generate cross-module project reports.",
-            group: "Modules"
+            group: "Modules",
         }
         resource_estimator_cpu: {
             description: "CPU cores for validation, metrics parsing, and resource estimation.",
-            group: "Resource"
+            group: "Resource",
         }
         resource_estimator_memory_gb: {
             description: "Memory in GB for preprocessing and resource estimation tasks.",
-            group: "Resource"
+            group: "Resource",
         }
     }
 

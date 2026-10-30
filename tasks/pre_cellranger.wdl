@@ -6,7 +6,7 @@ task validate_existing_cellranger {
     meta {
         description: "Validate existing Cell Ranger outs directories before downstream analysis."
         outputs: {
-            valid: "True when every sample has required Cell Ranger artifacts."
+            valid: "True when every sample has required Cell Ranger artifacts.",
         }
     }
 
@@ -15,13 +15,13 @@ task validate_existing_cellranger {
         count_outputs: "Cell Ranger outs directories, aligned with `sample_ids`."
         cpu: {
             description: "CPU cores for this validation task.",
-            group: "Resource"
+            group: "Resource",
         }
         memory_gb: {
             description: "Memory request in gigabytes.",
-            group: "Resource"
+            group: "Resource",
         }
-        container_image: "Apptainer image URI executed by Sprocket for this task."
+        container_image: "Apptainer image URI executed by Sprocket for this task.",
     }
 
     input {
@@ -77,7 +77,7 @@ task parse_cellranger_metrics {
     meta {
         description: "Parse estimated cell count from a Cell Ranger metrics_summary.csv."
         outputs: {
-            estimated_cells: "Estimated Number of Cells reported in the metrics file."
+            estimated_cells: "Estimated Number of Cells reported in the metrics file.",
         }
     }
 
@@ -85,13 +85,13 @@ task parse_cellranger_metrics {
         metrics_csv: "Cell Ranger `metrics_summary.csv` for one sample."
         cpu: {
             description: "CPU cores for this task.",
-            group: "Resource"
+            group: "Resource",
         }
         memory_gb: {
             description: "Memory request in gigabytes.",
-            group: "Resource"
+            group: "Resource",
         }
-        container_image: "Apptainer image URI executed by Sprocket for this task."
+        container_image: "Apptainer image URI executed by Sprocket for this task.",
     }
 
     input {
@@ -144,7 +144,7 @@ task write_cellranger_summary {
     meta {
         description: "Write a TSV of sample IDs and estimated cell counts."
         outputs: {
-            summary: "Tab-separated summary with columns `sample_id` and `estimated_cells`."
+            summary: "Tab-separated summary with columns `sample_id` and `estimated_cells`.",
         }
     }
 
@@ -153,13 +153,13 @@ task write_cellranger_summary {
         estimated_cells: "Parsed estimated cell counts, one per sample."
         cpu: {
             description: "CPU cores for this task.",
-            group: "Resource"
+            group: "Resource",
         }
         memory_gb: {
             description: "Memory request in gigabytes.",
-            group: "Resource"
+            group: "Resource",
         }
-        container_image: "Apptainer image URI executed by Sprocket for this task."
+        container_image: "Apptainer image URI executed by Sprocket for this task.",
     }
 
     input {
@@ -222,7 +222,7 @@ task estimate_downstream_resources {
     meta {
         description: "Compute LSF CPU and memory requests from sample count and total cells."
         outputs: {
-            resources: "Per-module CPU, memory, and R future global size limits."
+            resources: "Per-module CPU, memory, and R future global size limits.",
         }
     }
 
@@ -230,13 +230,13 @@ task estimate_downstream_resources {
         estimated_cells: "Estimated cell counts across all samples."
         cpu: {
             description: "CPU cores for this estimation task.",
-            group: "Resource"
+            group: "Resource",
         }
         memory_gb: {
             description: "Memory request in gigabytes.",
-            group: "Resource"
+            group: "Resource",
         }
-        container_image: "Apptainer image URI executed by Sprocket for this task."
+        container_image: "Apptainer image URI executed by Sprocket for this task.",
     }
 
     input {

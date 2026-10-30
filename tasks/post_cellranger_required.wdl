@@ -10,7 +10,7 @@ task run_upstream {
     meta {
         description: "Upstream Seurat QC module"
         outputs: {
-            done_flag: "Present when `run-upstream-analysis.sh` completes successfully."
+            done_flag: "Present when `run-upstream-analysis.sh` completes successfully.",
         }
     }
 
@@ -20,15 +20,15 @@ task run_upstream {
         notify_email: "Email address for LSF begin/end notifications."
         cpu: {
             description: "LSF CPU cores for upstream analysis.",
-            group: "Resource"
+            group: "Resource",
         }
         memory_gb: {
             description: "LSF memory request in gigabytes.",
-            group: "Resource"
+            group: "Resource",
         }
         future_globals_gib: {
             description: "R `future.globals.maxSize` limit in gibibytes.",
-            group: "Resource"
+            group: "Resource",
         }
     }
 
@@ -67,7 +67,7 @@ task run_cluster {
     meta {
         description: "Cluster cell calling module"
         outputs: {
-            done_flag: "Present when `run-cluster-cell-calling.sh` completes successfully."
+            done_flag: "Present when `run-cluster-cell-calling.sh` completes successfully.",
         }
     }
 
@@ -77,15 +77,15 @@ task run_cluster {
         notify_email: "Email address for LSF begin/end notifications."
         cpu: {
             description: "LSF CPU cores for cluster cell calling.",
-            group: "Resource"
+            group: "Resource",
         }
         memory_gb: {
             description: "LSF memory request in gigabytes.",
-            group: "Resource"
+            group: "Resource",
         }
         future_globals_gib: {
             description: "R `future.globals.maxSize` limit in gibibytes.",
-            group: "Resource"
+            group: "Resource",
         }
     }
 
@@ -124,7 +124,7 @@ task run_cell_types {
     meta {
         description: "Cell types annotation module"
         outputs: {
-            done_flag: "Present when `run-cell-types-annotation.sh` completes successfully."
+            done_flag: "Present when `run-cell-types-annotation.sh` completes successfully.",
         }
     }
 
@@ -134,11 +134,11 @@ task run_cell_types {
         notify_email: "Email address for LSF begin/end notifications."
         cpu: {
             description: "LSF CPU cores for cell-type annotation.",
-            group: "Resource"
+            group: "Resource",
         }
         memory_gb: {
             description: "LSF memory request in gigabytes.",
-            group: "Resource"
+            group: "Resource",
         }
     }
 
@@ -175,7 +175,7 @@ task run_project_updates {
     meta {
         description: "Project report and cross-module summary module"
         outputs: {
-            done_flag: "Present when `run-project-updates.sh` completes successfully."
+            done_flag: "Present when `run-project-updates.sh` completes successfully.",
         }
     }
 
@@ -185,11 +185,11 @@ task run_project_updates {
         notify_email: "Email address for LSF begin/end notifications."
         cpu: {
             description: "LSF CPU cores for project report generation.",
-            group: "Resource"
+            group: "Resource",
         }
         memory_gb: {
             description: "LSF memory request in gigabytes.",
-            group: "Resource"
+            group: "Resource",
         }
     }
 
@@ -226,7 +226,7 @@ task run_rshiny {
     meta {
         description: "R Shiny app packaging module"
         outputs: {
-            done_flag: "Present when `run-rshiny-app.sh` completes successfully."
+            done_flag: "Present when `run-rshiny-app.sh` completes successfully.",
         }
     }
 
@@ -236,11 +236,11 @@ task run_rshiny {
         notify_email: "Email address for LSF begin/end notifications."
         cpu: {
             description: "LSF CPU cores for R Shiny app packaging.",
-            group: "Resource"
+            group: "Resource",
         }
         memory_gb: {
             description: "LSF memory request in gigabytes.",
-            group: "Resource"
+            group: "Resource",
         }
     }
 
