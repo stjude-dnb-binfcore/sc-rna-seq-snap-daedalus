@@ -2,12 +2,12 @@ version 1.3
 
 struct ExistingCellRangerInput {
     meta {
-        description: "Existing Cell Ranger output supplied for one sample.",
+        description: "Existing Cell Ranger output supplied for one sample."
     }
 
     parameter_meta {
         id: "Sample identifier, matching project metadata `ID`."
-        count_output: "Cell Ranger `outs` directory for the sample.",
+        count_output: "Cell Ranger `outs` directory for the sample."
     }
 
     String id
@@ -16,14 +16,14 @@ struct ExistingCellRangerInput {
 
 struct CellRangerOutput {
     meta {
-        description: "Validated Cell Ranger output with estimated cell count.",
+        description: "Validated Cell Ranger output with estimated cell count."
     }
 
     parameter_meta {
         sample_id: "Sample identifier."
         count_output: "Cell Ranger `outs` directory for the sample."
         metrics_csv: "Cell Ranger `metrics_summary.csv` file."
-        estimated_cells: "Estimated number of cells reported by Cell Ranger.",
+        estimated_cells: "Estimated number of cells reported by Cell Ranger."
     }
 
     String sample_id
@@ -34,7 +34,7 @@ struct CellRangerOutput {
 
 struct DownstreamResources {
     meta {
-        description: "LSF resource requests derived from sample count and estimated cells.",
+        description: "LSF resource requests derived from sample count and estimated cells."
     }
 
     parameter_meta {
@@ -60,7 +60,7 @@ struct DownstreamResources {
         rshiny_cpu: "CPU cores for R Shiny app packaging."
         rshiny_memory_gb: "Memory request in GB for R Shiny app packaging."
         project_updates_cpu: "CPU cores for project report generation."
-        project_updates_memory_gb: "Memory request in GB for project report generation.",
+        project_updates_memory_gb: "Memory request in GB for project report generation."
     }
 
     Int upstream_cpu

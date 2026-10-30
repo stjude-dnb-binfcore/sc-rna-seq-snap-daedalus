@@ -21,7 +21,7 @@ task validate_existing_cellranger {
             description: "Memory request in gigabytes.",
             group: "Resource",
         }
-        container_image: "Apptainer image URI executed by Sprocket for this task.",
+        container_image: "Apptainer image URI executed by Sprocket for this task."
     }
 
     input {
@@ -91,7 +91,7 @@ task parse_cellranger_metrics {
             description: "Memory request in gigabytes.",
             group: "Resource",
         }
-        container_image: "Apptainer image URI executed by Sprocket for this task.",
+        container_image: "Apptainer image URI executed by Sprocket for this task."
     }
 
     input {
@@ -159,7 +159,7 @@ task write_cellranger_summary {
             description: "Memory request in gigabytes.",
             group: "Resource",
         }
-        container_image: "Apptainer image URI executed by Sprocket for this task.",
+        container_image: "Apptainer image URI executed by Sprocket for this task."
     }
 
     input {
@@ -236,7 +236,7 @@ task estimate_downstream_resources {
             description: "Memory request in gigabytes.",
             group: "Resource",
         }
-        container_image: "Apptainer image URI executed by Sprocket for this task.",
+        container_image: "Apptainer image URI executed by Sprocket for this task."
     }
 
     input {
