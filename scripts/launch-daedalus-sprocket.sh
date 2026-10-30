@@ -221,6 +221,10 @@ wait "${SPROCKET_PID}"
 RUN_EXIT=$?
 
 wait "${MONITOR_PID}" 2>/dev/null || true
+bash "${MONITOR_SCRIPT}" \
+  --daedalus-root "${DAEDALUS_ROOT}" \
+  --to "${NOTIFY_EMAIL}" \
+  --finalize-only || true
 set -e
 
 if [[ "${COLLECT_RESOURCES}" -eq 1 ]]; then
@@ -229,12 +233,13 @@ if [[ "${COLLECT_RESOURCES}" -eq 1 ]]; then
 fi
 
 if [[ "${RUN_EXIT}" -eq 0 ]]; then
-  send_workflow_email "[daedalus] Sprocket downstream: completed" \
-    "Sprocket downstream workflow completed successfully at $(date -Is)
-Project: ${DAEDALUS_ROOT}"
+  send_workflow_email "[daedalus] workflow: completed" \
+    "Daedalus workflow completed successfully at $(date -Is)
+Project: ${DAEDALUS_ROOT}
+(Sprocket downstream finished; preprocessing modules if any were run separately.)"
 else
-  send_workflow_email "[daedalus] Sprocket downstream: failed" \
-    "Sprocket downstream workflow failed (exit ${RUN_EXIT}) at $(date -Is)
+  send_workflow_email "[daedalus] workflow: failed" \
+    "Daedalus workflow failed (Sprocket exit ${RUN_EXIT}) at $(date -Is)
 Project: ${DAEDALUS_ROOT}
 Check: ${DAEDALUS_ROOT}/out/runs/${WORKFLOW_NAME}/"
 fi
