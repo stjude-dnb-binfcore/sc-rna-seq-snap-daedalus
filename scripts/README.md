@@ -322,6 +322,7 @@ These are regenerated on each launch:
 | `collect-resource-usage.sh` | Post-run LSF resource report (requested vs actual per module) |
 | `extract-resource-usage.sh` | Convenience wrapper: `--latest --json` into `out/resource_usage/` |
 | `test-downstream-layout.sh` | Sanity-check that expected WDL/inputs files exist |
+| `daedalus_validate_outputs.R` | Post-run biological checks (metadata, Cell Ranger, module RDS); see `workflows/BIOLOGICAL_VALIDATION.md` |
 
 Root launcher (one level up): `launch-daedalus-downstream.sh`
 

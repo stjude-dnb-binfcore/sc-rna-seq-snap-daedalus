@@ -232,6 +232,26 @@ if [[ "${COLLECT_RESOURCES}" -eq 1 ]]; then
   bash "${RESOURCE_SCRIPT}" --daedalus-root "${DAEDALUS_ROOT}" --latest --json || true
 fi
 
+VALIDATION_EXIT=0
+if [[ "${RUN_EXIT}" -eq 0 && "${DOWNSTREAM_ENABLED}" -eq 1 ]]; then
+  if [[ "$(daedalus_yaml_workflow_toggle run_biological_validation)" == "TRUE" ]]; then
+    echo "==> Biological validation (output consistency checks)"
+    mkdir -p "${DAEDALUS_ROOT}/out/validation"
+    set +e
+    Rscript "${SCRIPT_DIR}/daedalus_validate_outputs.R" \
+      --daedalus-root "${DAEDALUS_ROOT}" \
+      --json "${DAEDALUS_ROOT}/out/validation/biological_validation.json"
+    VALIDATION_EXIT=$?
+    set -e
+    if [[ "${VALIDATION_EXIT}" -ne 0 ]]; then
+      send_workflow_email "[daedalus] biological validation: failed" \
+        "Biological validation reported errors at $(date -Is)
+Project: ${DAEDALUS_ROOT}
+Report: ${DAEDALUS_ROOT}/out/validation/biological_validation.json"
+    fi
+  fi
+fi
+
 if [[ "${RUN_EXIT}" -eq 0 ]]; then
   send_workflow_email "[daedalus] Daedalus downstream: completed" \
     "Daedalus downstream workflow completed successfully at $(date -Is)
@@ -242,5 +262,8 @@ else
     "Daedalus downstream workflow failed (Sprocket exit ${RUN_EXIT}) at $(date -Is)
 Project: ${DAEDALUS_ROOT}
 Check: ${DAEDALUS_ROOT}/out/runs/${WORKFLOW_NAME}/"
+fi
+if [[ "${RUN_EXIT}" -eq 0 && "${VALIDATION_EXIT:-0}" -ne 0 ]]; then
+  exit "${VALIDATION_EXIT}"
 fi
 exit "${RUN_EXIT}"

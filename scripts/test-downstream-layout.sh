@@ -10,6 +10,7 @@ echo
 required=(
   sprocket.toml
   scripts/estimate-daedalus-downstream-resources.R
+  scripts/daedalus_validate_outputs.R
   scripts/launch-daedalus-sprocket.sh
   scripts/launch-daedalus-preprocessing-lsf.sh
   scripts/daedalus-read-config.sh
