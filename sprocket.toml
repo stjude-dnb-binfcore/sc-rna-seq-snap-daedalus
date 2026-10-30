@@ -19,3 +19,12 @@ executable = "/usr/bin/apptainer"
 
 [run.workflow.scatter]
 concurrency = 200
+
+[doc]
+index_page = "docs/wdl-index.md"
+github_url = "https://github.com/stjude-dnb-binfcore/sc-rna-seq-snap-daedalus"
+
+[doc.seo]
+title = "Daedalus WDL reference"
+description = "Sprocket workflows for Daedalus single-cell downstream analysis from Cell Ranger outputs."
+author = "DNB Bioinformatics Core"
