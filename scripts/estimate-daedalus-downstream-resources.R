@@ -28,6 +28,31 @@ suppressPackageStartupMessages({
   a
 }
 
+#' Resolve a configured .sif path (handles ./foo, mistaken ./research/..., and defaults).
+resolve_local_sif_path <- function(image, daedalus_root) {
+  daedalus_root <- normalizePath(daedalus_root, winslash = "/", mustWork = TRUE)
+  default_sif <- file.path(daedalus_root, "rstudio_4.4.0_seurat_4.4.0_latest.sif")
+  if (is.null(image) || !nzchar(image)) {
+    return(normalizePath(default_sif, winslash = "/", mustWork = FALSE))
+  }
+
+  path <- sub("^file://", "", image)
+  path <- sub("^\\./", "", path)
+  if (startsWith(path, "/")) {
+    out <- normalizePath(path, winslash = "/", mustWork = FALSE)
+  } else if (grepl("^(research|research_jude|hpcf)/", path)) {
+    # e.g. ./research/dept/.../project/rstudio.sif saved as a relative path
+    out <- normalizePath(paste0("/", path), winslash = "/", mustWork = FALSE)
+  } else {
+    out <- normalizePath(file.path(daedalus_root, path), winslash = "/", mustWork = FALSE)
+  }
+
+  if (!file.exists(out) && file.exists(default_sif)) {
+    out <- normalizePath(default_sif, winslash = "/", mustWork = TRUE)
+  }
+  out
+}
+
 #' Sprocket lsf_apptainer treats bare paths as docker:// URIs. Local images need file://.
 sprocket_container_uri <- function(image, daedalus_root) {
   if (is.null(image) || !nzchar(image)) return(image)
@@ -35,16 +60,14 @@ sprocket_container_uri <- function(image, daedalus_root) {
     return(image)
   }
 
-  path <- sub("^file://", "", image)
-  is_file_path <- startsWith(image, "file://") ||
-    startsWith(path, "/") ||
-    startsWith(path, "./") ||
-    startsWith(path, "../") ||
-    grepl("\\.sif$", path, ignore.case = TRUE)
+  is_file_path <- grepl("\\.sif$", image, ignore.case = TRUE) ||
+    startsWith(image, "file://") ||
+    startsWith(image, "/") ||
+    startsWith(image, "./") ||
+    startsWith(image, "../")
   if (!is_file_path) return(image)
 
-  if (!startsWith(path, "/")) path <- file.path(daedalus_root, path)
-  path <- normalizePath(path, winslash = "/", mustWork = FALSE)
+  path <- resolve_local_sif_path(image, daedalus_root)
   if (!file.exists(path)) {
     stop("Container image does not exist: ", path)
   }
@@ -213,10 +236,10 @@ resolve_project_paths <- function(cfg, daedalus_root) {
     data_dir = normalizePath(data_dir, winslash = "/", mustWork = FALSE),
     metadata_dir = normalizePath(metadata_dir, winslash = "/", mustWork = FALSE),
     gene_markers_dir = normalizePath(gene_markers_dir, winslash = "/", mustWork = FALSE),
-    container_image = {
-      existing <- cfg$resource_profile$container_image %||% ""
-      if (nzchar(existing)) existing else file.path(root_dir, "rstudio_4.4.0_seurat_4.4.0_latest.sif")
-    }
+    container_image = resolve_local_sif_path(
+      cfg$resource_profile$container_image %||% "",
+      daedalus_root
+    )
   )
 }
 
@@ -483,7 +506,7 @@ main <- function() {
     metadata_path = metadata_path,
     allow_pending = pending_cellranger
   )
-  container_image <- sprocket_container_uri(paths$container_image, paths$root_dir)
+  container_image <- sprocket_container_uri(paths$container_image, paths$daedalus_root)
 
   cat("Downstream resource estimate:", paths$root_dir, "\n")
   cat("  tier:", res$resource_tier, " samples:", res$num_samples,
