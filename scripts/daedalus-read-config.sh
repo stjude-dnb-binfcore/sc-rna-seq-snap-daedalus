@@ -82,21 +82,36 @@ daedalus_any_downstream_module_enabled() {
 }
 
 # Absolute path to resource_profile.container_image (default: <root>/rstudio_4.4.0_seurat_4.4.0_latest.sif).
+# Prefers inputs/project_parameters.generated.yaml when present (same as validation / Sprocket inputs).
 daedalus_container_image() {
   local daedalus_root
-  daedalus_root="$(daedalus_resolve_root)"
+  daedalus_root="$(cd "$(daedalus_resolve_root)" && pwd)"
   _daedalus_yaml_r "
-    rp <- cfg[['resource_profile']]
+    daedalus_root <- '${daedalus_root}'
+    default_sif <- file.path(daedalus_root, 'rstudio_4.4.0_seurat_4.4.0_latest.sif')
+    generated <- file.path(daedalus_root, 'inputs', 'project_parameters.generated.yaml')
+    master <- file.path(daedalus_root, 'project_parameters.Config.yaml')
+    config_path <- if (file.exists(generated)) generated else master
+    eff <- yaml::read_yaml(config_path)
+    rp <- eff[['resource_profile']]
     img <- ''
     if (!is.null(rp) && !is.null(rp[['container_image']])) {
       img <- as.character(rp[['container_image']][[1L]])
     }
-    if (!nzchar(img)) {
-      img <- file.path('${daedalus_root}', 'rstudio_4.4.0_seurat_4.4.0_latest.sif')
-    } else if (!startsWith(img, '/')) {
-      img <- file.path('${daedalus_root}', sub('^\\\\./', '', img))
+    resolve <- function(path) {
+      if (!nzchar(path)) return('')
+      if (!startsWith(path, '/')) {
+        path <- file.path(daedalus_root, sub('^\\\\./', '', path))
+      }
+      normalizePath(path, winslash='/', mustWork=FALSE)
     }
-    cat(normalizePath(img, winslash='/', mustWork=FALSE))
+    out <- resolve(img)
+    if (!nzchar(out) || !file.exists(out)) {
+      if (file.exists(default_sif)) {
+        out <- normalizePath(default_sif, winslash='/', mustWork=TRUE)
+      }
+    }
+    cat(out)
   "
 }
 

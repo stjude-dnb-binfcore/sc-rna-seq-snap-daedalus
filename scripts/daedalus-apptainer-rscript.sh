@@ -36,11 +36,10 @@ if [[ $# -lt 1 ]]; then
   exit 1
 fi
 
+DAEDALUS_ROOT="$(cd "${DAEDALUS_ROOT}" && pwd)"
 export DAEDALUS_ROOT
 # shellcheck source=daedalus-read-config.sh
 source "${SCRIPT_DIR}/daedalus-read-config.sh"
-
-CONTAINER="$(daedalus_container_image)" || true
 
 RUNNER=()
 if command -v apptainer >/dev/null 2>&1; then
@@ -49,8 +48,15 @@ elif command -v singularity >/dev/null 2>&1; then
   RUNNER=(singularity)
 fi
 
-if [[ ${#RUNNER[@]} -eq 0 || -z "${CONTAINER:-}" || ! -f "${CONTAINER}" ]]; then
-  echo "WARN: Running on host R (container unavailable or missing: ${CONTAINER:-<unset>})" >&2
+if [[ ${#RUNNER[@]} -eq 0 ]]; then
+  echo "WARN: apptainer/singularity not in PATH; running host Rscript (Seurat checks may be skipped)." >&2
+  echo "      On St. Jude HPC: module load singularity" >&2
+  exec Rscript "$@"
+fi
+
+CONTAINER="$(daedalus_container_image)" || true
+if [[ -z "${CONTAINER:-}" || ! -f "${CONTAINER}" ]]; then
+  echo "WARN: Container image not found (${CONTAINER:-<unset>}); running host Rscript." >&2
   exec Rscript "$@"
 fi
 
