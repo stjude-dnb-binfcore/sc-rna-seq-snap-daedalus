@@ -1,21 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Root launcher for downstream daedalus workflow (upstream-analysis onwards) via WDL + Sprocket.
+# Root launcher for daedalus: optional FastQC / Cell Ranger (static LSF) plus
+# downstream workflow (upstream-analysis onwards) via WDL + Sprocket.
 #
 # Prerequisites:
-#   - FastQC and Cell Ranger complete under analyses/cellranger-analysis/
+#   - Cell Ranger outputs under analyses/cellranger-analysis/ (or set
+#     workflow_profile.run_cellranger: true to align on submit)
 #   - module load sprocket R singularity   (on St. Jude HPC)
 #   - Apptainer/Singularity image at rstudio_4.4.0_seurat_4.4.0_latest.sif
 #
 # Usage (from this directory):
 #   bash launch-daedalus-downstream.sh              # dry-run: validate static WDL + refresh YAML/inputs
-#   bash launch-daedalus-downstream.sh --submit     # submit to LSF via Sprocket
+#   bash launch-daedalus-downstream.sh --submit     # submit preprocessing (if enabled) then Sprocket
 #
 # What happens automatically:
+#   0. If workflow_profile.run_fastqc / run_cellranger: submit static LSF jobs
+#      (parallel); on --submit, wait for Cell Ranger's waiter job before downstream
 #   1. Counts samples from project_metadata.tsv (or Cell Ranger output dirs)
 #   2. Reads Cell Ranger metrics_summary.csv for cells/sample
-#   3. Scales LSF CPU and memory per module (baseline: 8 samples x 50k cells)
+#   3. Scales LSF CPU and memory per downstream module (baseline: 8 samples x 50k cells)
 #   4. Writes <root_dir>/inputs/project_parameters.generated.yaml (master Config.yaml unchanged)
 #   5. Writes inputs/generated_downstream.json for Sprocket
 #   6. After a successful submit, writes out/resource_usage/resource_usage_<run_id>.{csv,json}

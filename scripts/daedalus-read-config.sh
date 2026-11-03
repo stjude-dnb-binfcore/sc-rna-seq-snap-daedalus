@@ -53,6 +53,34 @@ _daedalus_yaml_r() {
   "
 }
 
+# workflow_profile.run_* toggle (TRUE/FALSE).
+daedalus_yaml_workflow_toggle() {
+  local key="$1"
+  _daedalus_yaml_r "
+    wp <- cfg[['workflow_profile']]
+    if (is.null(wp)) wp <- list()
+    val <- wp[['${key}']]
+    if (is.null(val)) {
+      cat('FALSE')
+    } else {
+      cat(ifelse(isTRUE(val), 'TRUE', 'FALSE'))
+    }
+  "
+}
+
+# Any downstream module enabled for WDL/Sprocket (upstream onwards).
+daedalus_any_downstream_module_enabled() {
+  local key val
+  for key in run_upstream run_integrative run_cluster run_contamination_removal \
+             run_cell_types run_clone_phylogeny run_de_go run_rshiny run_project_updates; do
+    val="$(daedalus_yaml_workflow_toggle "${key}")"
+    if [[ "${val}" == "TRUE" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 # Print a top-level scalar value.
 daedalus_yaml_get() {
   local key="$1"
