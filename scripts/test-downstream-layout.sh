@@ -11,6 +11,8 @@ required=(
   sprocket.toml
   scripts/estimate-daedalus-downstream-resources.R
   scripts/launch-daedalus-sprocket.sh
+  scripts/launch-daedalus-preprocessing-lsf.sh
+  scripts/daedalus-read-config.sh
   scripts/collect-resource-usage.sh
   scripts/extract-resource-usage.sh
   workflows/daedalus_from_cellranger.wdl
@@ -56,6 +58,14 @@ if ! grep -Eq '^SPROCKET_RUN_FLAGS=.*--no-call-cache' "${DAEDALUS_ROOT}/scripts/
 fi
 if grep -Fq 'generate-daedalus-wdl.R' "${DAEDALUS_ROOT}/scripts/launch-daedalus-sprocket.sh"; then
   echo "Launcher still generates WDL" >&2
+  exit 1
+fi
+if ! grep -Fq 'launch-daedalus-preprocessing-lsf.sh' "${DAEDALUS_ROOT}/scripts/launch-daedalus-sprocket.sh"; then
+  echo "Launcher does not wire FastQC/Cell Ranger preprocessing" >&2
+  exit 1
+fi
+if ! grep -Fq 'run_fastqc' "${DAEDALUS_ROOT}/project_parameters.Config.yaml"; then
+  echo "workflow_profile.run_fastqc missing from Config.yaml" >&2
   exit 1
 fi
 echo "OK      launcher uses static WDL with call caching disabled"

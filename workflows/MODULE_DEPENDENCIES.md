@@ -4,7 +4,10 @@ Sprocket enforces these edges via WDL `after` clauses in
 `daedalus_from_cellranger.wdl`. Each arrow on the **spine** means the next
 module starts only after the previous one **finishes successfully**.
 
-**FastQC** and **Cell Ranger** are outside this workflow. The WDL starts from
+**FastQC** and **Cell Ranger** are outside this WDL workflow but can be enabled
+via `workflow_profile.run_fastqc` / `run_cellranger` in `launch-daedalus-downstream.sh`
+(static LSF; parallel with each other; downstream waits on Cell Ranger's waiter job).
+The WDL starts from
 existing Cell Ranger outputs, then builds the summary TSV used for resource
 estimation.
 
