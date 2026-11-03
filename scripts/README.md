@@ -16,7 +16,7 @@ those toggles into `inputs/sprocket_inputs.json` and writes scaled resources to
 
 Before launching downstream:
 
-1. **Cell Ranger** is complete under `analyses/cellranger-analysis/results/02_cellranger_count/<parameters>/<sample>/outs`.
+1. **Cell Ranger** is complete under `analyses/cellranger-analysis/results/02_cellranger_count/<parameters>/<sample>/outs`, **or** set `workflow_profile.run_cellranger: true` so `--submit` runs alignment first (static LSF scripts; not resource-scaled).
 2. **Sample metadata** exists at `data/project_metadata/project_metadata.tsv`.
 3. Metadata `ID` values exactly match the Cell Ranger sample directory names.
 4. **Apptainer/Singularity image** is configured at `resource_profile.container_image` in `project_parameters.Config.yaml` (default: `<root_dir>/rstudio_4.4.0_seurat_4.4.0_latest.sif`).
@@ -25,7 +25,7 @@ Before launching downstream:
 ## Load modules
 
 ```bash
-module load sprocket R
+module load sprocket R 
 ```
 
 ## Dry run — validate files and refresh inputs
@@ -34,7 +34,12 @@ Run from the **project root** (parent of this `scripts/` folder). With no flags,
 the launcher refreshes generated YAML/inputs, checks the static WDL, and
 validates Sprocket inputs—it does **not** submit LSF jobs.
 
+If `workflow_profile.run_cellranger: true` and alignments are **not** on disk yet,
+dry-run still plans downstream resources from metadata (baseline cells/sample) and
+**skips** `sprocket validate` until outputs exist. Use `--submit` to run Cell Ranger, then estimate resource and launch Sprocket automatically after Cell Ranger alignment completes successfully.
+
 ```bash
+cd sc-rna-seq-snap-daedalus   # daedalus root (repo or deployed copy)
 bash launch-daedalus-downstream.sh
 ```
 
@@ -45,24 +50,37 @@ To submit after a successful dry run, add `--submit` (see
 
 ## Safe ways to launch downstream analysis
 
+Dry-run first (`bash launch-daedalus-downstream.sh`), then submit only after
+`sprocket validate` succeeds.
+
+Sprocket runs each **module** on LSF compute nodes. The **launcher** on the node
+where you started it stays alive until `sprocket run` finishes (task email
+monitor and resource collection). `nohup` keeps that launcher running after you
+log out—you still need to monitor progress (see below).
+
 ### Option 1 — nohup in the background (recommended)
 
 ```bash
+cd sc-rna-seq-snap-daedalus
+module load sprocket R
+
 nohup bash launch-daedalus-downstream.sh --submit > daedalus-launch.log 2>&1 &
-echo $!   # note the PID
-```
-
-Monitor progress:
-
-```bash
+echo $!   # note the launcher PID
 tail -f daedalus-launch.log
 ```
 
-or
+Do **not** treat `nohup ... &` as “submit and forget” without monitoring: if the
+launcher dies early, downstream LSF jobs may already be running while emails and
+resource collection never finish.
 
-```bash
-tail -f out/runs/daedalus_from_cellranger/_latest/calls/upstream/attempts/0/stderr
-```
+### Monitoring (any option)
+
+| What | How |
+|------|-----|
+| LSF module jobs | `bjobs -u $USER` |
+| Launcher / Sprocket | `daedalus-launch.log`, or `out/runs/daedalus_from_cellranger/` |
+| Email | `CONTACT_EMAIL` in YAML — workflow and per-module notifications |
+| Task stderr (example) | `tail -f out/runs/daedalus_from_cellranger/<run_id>/calls/<task>/attempts/0/stderr` |
 
 Every submission disables Sprocket call caching because shared directories are
 passed as `String` paths, so changes to their contents are not represented in
@@ -70,11 +88,15 @@ the cache key.
 
 ### Option 2 — tmux or screen
 
-```bash
-tmux new -s daedalus
-module load sprocket R singularity
-bash launch-daedalus-downstream.sh
+Same flow as Option 1, but attach/detach instead of a log file—useful if you
+want a live terminal without `tail -f`.
 
+```bash
+cd sc-rna-seq-snap-daedalus
+module load sprocket R
+
+tmux new -s daedalus
+bash launch-daedalus-downstream.sh
 bash launch-daedalus-downstream.sh --submit
 # Detach: Ctrl+b then d
 # Reattach later: tmux attach -t daedalus
@@ -118,7 +140,7 @@ Each run performs these steps in order:
 | 2. Render Sprocket config | `scripts/render-sprocket-config.sh` | `inputs/sprocket.generated.toml` |
 | 3. Check WDL | `sprocket check workflows/daedalus_from_cellranger.wdl` | — |
 | 4. Validate inputs | `sprocket validate workflows/daedalus_from_cellranger.wdl @inputs/sprocket_inputs.json --config inputs/sprocket.generated.toml` | — |
-| 5. Submit (if not dry-run) | `sprocket run ... --output-dir out --no-call-cache` | LSF jobs |
+| 5. Submit (if not dry-run) | `sprocket run ... --output-dir <daedalus-root>/out --no-call-cache` (set explicitly in `launch-daedalus-sprocket.sh`) | LSF jobs under `<daedalus-root>/out/` |
 | 6. Collect resource usage (after `--submit` only) | `scripts/collect-resource-usage.sh --daedalus-root . --latest --json` | `out/resource_usage/` |
 
 The resource estimator:
@@ -164,7 +186,7 @@ The pipeline supports **three ways to run** downstream modules. The config file 
 
 - **WDL/Sprocket** sets `DAEDALUS_CONFIG_FILE` in `tasks/post_cellranger_required.wdl` and `tasks/post_cellranger_optional.wdl` to the generated overlay. Module scripts detect this and load the generated YAML (scaled resources + paths refreshed at launch).
 - **All other run modes** do not set `DAEDALUS_CONFIG_FILE`, so modules load the master template `project_parameters.Config.yaml`.
-- **FastQC and Cell Ranger** remain outside this WDL workflow and continue to read `project_parameters.Config.yaml` directly.
+- **FastQC and Cell Ranger** are outside the WDL graph but can be turned on with `workflow_profile.run_fastqc` / `run_cellranger`. They use static LSF scripts (`analyses/fastqc-analysis/lsf-script.txt`, `analyses/cellranger-analysis/submit-multiple-jobs.sh`) and read `project_parameters.Config.yaml` directly (not the generated overlay). Cell Ranger can still be run **standalone** with `cd analyses/cellranger-analysis && bsub < submit-multiple-jobs.sh` — no daedalus launcher required.
 
 ### Helpers (R and bash)
 
@@ -219,15 +241,34 @@ This is your main configuration file. The launcher **does not overwrite** it by 
 | Section | What to set |
 |---------|-------------|
 | Project paths | `root_dir`, `data_dir`, `metadata_dir` — use absolute paths for your project (estimator resolves these on each run). |
-| `workflow_profile` | Turn modules on/off (`run_upstream`, `run_integrative`, `run_cluster`, etc.). |
+| `workflow_profile` | Turn modules on/off (`run_fastqc`, `run_cellranger`, `run_upstream`, `run_integrative`, `run_cluster`, etc.). Preprocessing toggles do not change estimator output. |
 | `resource_profile.container_image` | Full path to the Seurat Apptainer `.sif` if not at `<root_dir>/rstudio_4.4.0_seurat_4.4.0_latest.sif`. |
 | Biology / QC | Upstream filters (`min_genes`, `min_count`, `condition_value*`), integration method, clustering resolution, annotation method, etc. |
 | Module-specific | Sections for integrative, cluster, contamination, cell-types, clone-phylogeny, de-go, rshiny — see inline comments in the YAML. |
 
-**Example — upstream only:**
+**Example — align + upstream (FastQC and Cell Ranger in parallel, then Sprocket):**
 
 ```yaml
 workflow_profile:
+  run_fastqc: true
+  run_cellranger: true
+  run_upstream: true
+  run_integrative: false
+  run_cluster: false
+  run_contamination_removal: false
+  run_cell_types: false
+  run_clone_phylogeny: false
+  run_de_go: false
+  run_rshiny: false
+  run_project_updates: false
+```
+
+**Example — upstream only (Cell Ranger already complete):**
+
+```yaml
+workflow_profile:
+  run_fastqc: false
+  run_cellranger: false
   run_upstream: true
   run_integrative: false
   run_cluster: false
@@ -289,6 +330,7 @@ These are regenerated on each launch:
 | Script | Purpose |
 |--------|---------|
 | `launch-daedalus-sprocket.sh` | Main orchestrator (estimate → render config → check → validate → run → resource report) |
+| `launch-daedalus-preprocessing-lsf.sh` | Submit optional FastQC and Cell Ranger via static LSF scripts (`run_fastqc` / `run_cellranger`); used by `launch-daedalus-sprocket.sh`, not the downstream resource estimator |
 | `estimate-daedalus-downstream-resources.R` | Cell Ranger metrics → LSF resources + YAML/JSON |
 | `render-sprocket-config.sh` | Writes `inputs/sprocket.generated.toml` for launch |
 | `monitor-daedalus-task-emails.sh` | Background per-module start/complete emails while Sprocket runs |
@@ -364,10 +406,14 @@ Notifications go to **`CONTACT_EMAIL`** in `project_parameters.Config.yaml` (pas
 
 | When | How |
 |------|-----|
-| Workflow submitted | `launch-daedalus-sprocket.sh` → `daedalus-notify-email.sh` (login node) |
-| Each module started | `monitor-daedalus-task-emails.sh` when LSF `job_id` appears for that module |
-| Each module completed / failed | `monitor-daedalus-task-emails.sh` when LSF job reaches `DONE` / `EXIT` |
-| Whole workflow finished / failed | Launch script after `sprocket run` exits |
+| Pipeline `--submit` started | `launch-daedalus-sprocket.sh` → `daedalus-notify-email.sh` (immediate) |
+| FastQC / Cell Ranger submitted | `daedalus-notify-email.sh` on submit; LSF `-N` to `CONTACT_EMAIL` when the job ends (optional `-B` via `DAEDALUS_LSF_NOTIFY_ON_START=1`) |
+| Cell Ranger chain finished (before Sprocket) | Launch script after `bwait` on waiter job |
+| Daedalus downstream submitted | Launch script just before `sprocket run` (subject: `[daedalus] Daedalus downstream: submitted`) |
+| Each downstream module started | `monitor-daedalus-task-emails.sh` when LSF `job_id` appears for that module |
+| Each downstream module completed / failed | Monitor when LSF job reaches `DONE` / `EXIT` |
+| Daedalus downstream finished / failed | Launch script after `sprocket run` exits (`[daedalus] Daedalus downstream: completed` or `: failed`) |
+| Missed module complete (catch-up) | `bash scripts/monitor-daedalus-task-emails.sh --daedalus-root . --to CONTACT_EMAIL --finalize-only` |
 
 Module emails use **`CONTACT_EMAIL`** from `project_parameters.Config.yaml`. The monitor runs in the background while Sprocket executes and polls `out/runs/daedalus_from_cellranger/_latest/calls/`.
 

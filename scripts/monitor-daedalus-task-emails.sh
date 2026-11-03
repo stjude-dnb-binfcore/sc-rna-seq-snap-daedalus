@@ -3,6 +3,10 @@
 #
 # Usage:
 #   monitor-daedalus-task-emails.sh --daedalus-root PATH --to EMAIL --watch-pid PID [--interval SEC]
+#   monitor-daedalus-task-emails.sh --daedalus-root PATH --to EMAIL --finalize-only
+#
+# Completion is detected from Sprocket artifacts (outputs.json, work/*.done) as well as
+# LSF status, because bjobs often returns UNKNOWN after a job leaves the active queue.
 
 set -euo pipefail
 
@@ -10,7 +14,7 @@ DAEDALUS_ROOT=""
 NOTIFY_EMAIL=""
 WATCH_PID=""
 INTERVAL=30
-NOTIFY_SCRIPT=""
+FINALIZE_ONLY=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -18,18 +22,26 @@ while [[ $# -gt 0 ]]; do
     --to) NOTIFY_EMAIL="$2"; shift 2 ;;
     --watch-pid) WATCH_PID="$2"; shift 2 ;;
     --interval) INTERVAL="$2"; shift 2 ;;
+    --finalize-only) FINALIZE_ONLY=1; shift ;;
     -h|--help)
-      sed -n '2,5p' "$0" | sed 's/^# \?//'
+      sed -n '2,8p' "$0" | sed 's/^# \?//'
       exit 0
       ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
 
-[[ -n "${DAEDALUS_ROOT}" && -n "${NOTIFY_EMAIL}" && -n "${WATCH_PID}" ]] || {
-  echo "Usage: monitor-daedalus-task-emails.sh --daedalus-root PATH --to EMAIL --watch-pid PID" >&2
-  exit 1
-}
+if [[ "${FINALIZE_ONLY}" -eq 1 ]]; then
+  [[ -n "${DAEDALUS_ROOT}" && -n "${NOTIFY_EMAIL}" ]] || {
+    echo "Usage: monitor-daedalus-task-emails.sh --daedalus-root PATH --to EMAIL --finalize-only" >&2
+    exit 1
+  }
+else
+  [[ -n "${DAEDALUS_ROOT}" && -n "${NOTIFY_EMAIL}" && -n "${WATCH_PID}" ]] || {
+    echo "Usage: monitor-daedalus-task-emails.sh --daedalus-root PATH --to EMAIL --watch-pid PID" >&2
+    exit 1
+  }
+fi
 
 NOTIFY_SCRIPT="${DAEDALUS_ROOT}/scripts/daedalus-notify-email.sh"
 RUNS_ROOT="${DAEDALUS_ROOT}/out/runs/daedalus_from_cellranger"
@@ -127,63 +139,49 @@ job_lsf_status() {
   echo "UNKNOWN"
 }
 
-while kill -0 "${WATCH_PID}" 2>/dev/null; do
-  if calls_dir="$(resolve_calls_dir 2>/dev/null)"; then
-    run_id="$(basename "$(dirname "${calls_dir}")")"
-    state_file="$(state_file_for_run "${run_id}")"
+lsf_status_upper() {
+  echo "$1" | tr '[:lower:]' '[:upper:]'
+}
 
-    for call_path in "${calls_dir}"/*/; do
-      [[ -d "${call_path}" ]] || continue
-      alias="$(basename "${call_path}")"
-      if ! module="$(normalize_module "${alias}")"; then
-        continue
-      fi
-      label="$(module_label "${module}")"
-      attempt_dir="${call_path}attempts/0"
-      job_id_file="${attempt_dir}/job_id"
+# Sprocket wrote outputs or the WDL task left a *.done flag under work/.
+call_succeeded_on_disk() {
+  local call_path="$1"
+  local attempt_dir="$2"
+  [[ -f "${call_path}outputs.json" ]] && return 0
+  [[ -d "${attempt_dir}/work" ]] && compgen -G "${attempt_dir}/work/*.done" >/dev/null && return 0
+  return 1
+}
 
-      if [[ -f "${job_id_file}" ]]; then
-        job_id="$(tr -d '[:space:]' < "${job_id_file}")"
-        start_key="${module}:started"
+# pending | success | failed
+module_outcome() {
+  local call_path="$1"
+  local attempt_dir="$2"
+  local job_id="$3"
 
-        if ! is_marked "${state_file}" "${start_key}"; then
-          send_module_email \
-            "[daedalus] ${module}: started" \
-            "${label} started at $(date -Is)\nLSF job: ${job_id}\nProject: ${DAEDALUS_ROOT}"
-          mark "${state_file}" "${start_key}"
-        fi
-
-        complete_key="${module}:completed"
-        fail_key="${module}:failed"
-        if ! is_marked "${state_file}" "${complete_key}" && ! is_marked "${state_file}" "${fail_key}"; then
-          status="$(job_lsf_status "${job_id}")"
-          case "${status}" in
-            DONE)
-              send_module_email \
-                "[daedalus] ${module}: completed" \
-                "${label} completed successfully at $(date -Is)\nLSF job: ${job_id}\nProject: ${DAEDALUS_ROOT}"
-              mark "${state_file}" "${complete_key}"
-              ;;
-            EXIT|ZOMBI|UNKWN)
-              send_module_email \
-                "[daedalus] ${module}: failed" \
-                "${label} failed (LSF status: ${status}) at $(date -Is)\nLSF job: ${job_id}\nProject: ${DAEDALUS_ROOT}\nCheck: ${attempt_dir}/stderr"
-              mark "${state_file}" "${fail_key}"
-              ;;
-          esac
-        fi
-      fi
-    done
+  if call_succeeded_on_disk "${call_path}" "${attempt_dir}"; then
+    echo "success"
+    return 0
   fi
-  sleep "${INTERVAL}"
-done
 
-# Final poll after sprocket exits (catch jobs that finished at the end).
-if calls_dir="$(resolve_calls_dir 2>/dev/null)"; then
+  local status upper
+  status="$(job_lsf_status "${job_id}")"
+  upper="$(lsf_status_upper "${status}")"
+  case "${upper}" in
+    DONE) echo "success"; return 0 ;;
+    EXIT|ZOMBI|UNKWN|UNKNOWN) echo "failed"; return 0 ;;
+  esac
+  echo "pending"
+}
+
+poll_modules_once() {
+  local calls_dir run_id state_file
+  calls_dir="$(resolve_calls_dir 2>/dev/null)" || return 0
   run_id="$(basename "$(dirname "${calls_dir}")")"
   state_file="$(state_file_for_run "${run_id}")"
+
   for call_path in "${calls_dir}"/*/; do
     [[ -d "${call_path}" ]] || continue
+    local alias module label attempt_dir job_id_file job_id
     alias="$(basename "${call_path}")"
     if ! module="$(normalize_module "${alias}")"; then
       continue
@@ -191,27 +189,65 @@ if calls_dir="$(resolve_calls_dir 2>/dev/null)"; then
     label="$(module_label "${module}")"
     attempt_dir="${call_path}attempts/0"
     job_id_file="${attempt_dir}/job_id"
+
     [[ -f "${job_id_file}" ]] || continue
     job_id="$(tr -d '[:space:]' < "${job_id_file}")"
-    complete_key="${module}:completed"
-    fail_key="${module}:failed"
+
+    local start_key="${module}:started"
+    if ! is_marked "${state_file}" "${start_key}"; then
+      send_module_email \
+        "[daedalus] ${module}: started" \
+        "${label} started at $(date -Is)
+LSF job: ${job_id}
+Project: ${DAEDALUS_ROOT}"
+      mark "${state_file}" "${start_key}"
+    fi
+
+    local complete_key="${module}:completed"
+    local fail_key="${module}:failed"
     if is_marked "${state_file}" "${complete_key}" || is_marked "${state_file}" "${fail_key}"; then
       continue
     fi
-    status="$(job_lsf_status "${job_id}")"
-    case "${status}" in
-      DONE)
+
+    local outcome
+    outcome="$(module_outcome "${call_path}" "${attempt_dir}" "${job_id}")"
+    case "${outcome}" in
+      success)
         send_module_email \
           "[daedalus] ${module}: completed" \
-          "${label} completed successfully at $(date -Is)\nLSF job: ${job_id}\nProject: ${DAEDALUS_ROOT}"
+          "${label} completed successfully at $(date -Is)
+LSF job: ${job_id}
+Project: ${DAEDALUS_ROOT}"
         mark "${state_file}" "${complete_key}"
         ;;
-      EXIT|ZOMBI|UNKWN|UNKNOWN)
+      failed)
         send_module_email \
           "[daedalus] ${module}: failed" \
-          "${label} failed (LSF status: ${status}) at $(date -Is)\nLSF job: ${job_id}\nProject: ${DAEDALUS_ROOT}\nCheck: ${attempt_dir}/stderr"
+          "${label} failed at $(date -Is)
+LSF job: ${job_id}
+Project: ${DAEDALUS_ROOT}
+Check: ${attempt_dir}/stderr"
         mark "${state_file}" "${fail_key}"
         ;;
     esac
   done
+}
+
+if [[ "${FINALIZE_ONLY}" -eq 1 ]]; then
+  for _pass in 1 2 3; do
+    poll_modules_once
+    sleep 15
+  done
+  exit 0
 fi
+
+while kill -0 "${WATCH_PID}" 2>/dev/null; do
+  poll_modules_once
+  sleep "${INTERVAL}"
+done
+
+# Final passes after sprocket exits (LSF history + Sprocket outputs may lag).
+for _pass in 1 2 3 4; do
+  poll_modules_once
+  sleep 15
+done

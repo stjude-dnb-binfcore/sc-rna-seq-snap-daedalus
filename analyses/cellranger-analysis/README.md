@@ -6,7 +6,7 @@
 
 The `submit-multiple-jobs.sh` script is designed to run the following two steps: 
    - Step 1: To run the `j1.sh` script to align single or multiple libraries in parallel, i.e., `run-cellranger-analysis`. 
-   - Step 2: To run `j2.sh` to summarize alignment results, i.e., `summarize-cellranger-analysis`. The latter script will be on hold and executed once all libraries are aligned and `j1.sh` is complete. This is been taken care of by the `waiter.sh` script.
+   - Step 2: To run `j2.sh` to summarize alignment results, i.e., `summarize-cellranger-analysis`. The latter script will be on hold and executed once all libraries are aligned and `j1.sh` is complete. This is taken care of by the `waiter.sh` script.
 
 Parameters according to the project and analysis strategy will need to be specified in the following scripts:
 - `../../project_parameters.Config.yaml`: define the `metadata_dir`, `genome_reference_path`, `cellranger_parameters`, and `genome_name_cellranger`. For a list of genome references maintained and supported by the Bioinformatics Core at DNB, please review the [Genome References wiki page](https://github.com/stjude-dnb-binfcore/sc-rna-seq-snap/wiki/2.-Genome-References). Please submit an [issue](https://github.com/stjude-dnb-binfcore/sc-rna-seq-snap/issues) to request the path to the reference genome of preference. Otherwise, specify the path to the reference genome of your preference. 
@@ -44,13 +44,46 @@ Cell Ranger will automatically recognize these as multiple libraries for the sam
 
 ## Run module on HPC
 
-To run all of the scripts in this module sequentially on an interactive session on HPC, please run the following command from an interactive compute node:
+### Standalone (original — outside Sprocket / daedalus)
 
-```
+From **`analyses/cellranger-analysis`** on an interactive session:
+
+```bash
+cd analyses/cellranger-analysis
 bsub < submit-multiple-jobs.sh
 ```
 
-Please note that this will run the analysis module outside of the container while submitting lsf job on HPC. This is currently the only option of running the `cellranger-analysis` module. By default, we are using `python/3.9.9` and `cellranger/8.0.1` as available on St Jude HPC.
+Run **`bsub` from this directory** so `-cwd "."` is the module folder. LSF runs `submit-multiple-jobs.sh` as a job (the `#BSUB` lines at the top of that file set queue, memory, and logs). That job submits the internal `j1` alignments and the `waiter.sh` → `j2` summary chain. No daedalus or Sprocket launcher is involved.
+
+### Via daedalus (Sprocket downstream)
+
+Use this when downstream QC and analysis run through **Sprocket/WDL** (`workflows/daedalus_from_cellranger.wdl`).
+
+1. From the **project root**, run `bash launch-daedalus-downstream.sh --submit` (or dry-run first without `--submit`). Details: [`scripts/README.md`](../../scripts/README.md).
+2. Turn alignment on in **`project_parameters.Config.yaml`** under `workflow_profile`:
+   - `run_cellranger: true` — submits this module’s LSF chain via `scripts/launch-daedalus-preprocessing-lsf.sh`
+   - `run_fastqc: true` — optional; runs in parallel with Cell Ranger when both are enabled
+3. Set biology paths and Cell Ranger options in the same YAML (`metadata_dir`, `genome_reference_path`, `cellranger_parameters`, etc.; see [Usage](#usage) above).
+4. The launcher waits for the Cell Ranger **waiter** job, then estimates downstream resources and submits Sprocket. Downstream R modules use the **generated** overlay (`inputs/project_parameters.generated.yaml`); Cell Ranger still reads the **master** YAML like standalone runs.
+
+You do **not** run `bsub < submit-multiple-jobs.sh` when using this entry point.
+
+### Via `launch_full_pipeline.sh` (full LSF chain, no Sprocket)
+
+Use this for the **legacy** end-to-end pipeline: static `bsub` scripts under each `analyses/*/lsf-script.txt`, with no daedalus/Sprocket workflow.
+
+1. From the **project root**, run `bash launch_full_pipeline.sh`. Overview: [repository `README.md`](../../README.md#launch-the-full-pipeline).
+2. Edit the **Feature toggles** block at the top of `launch_full_pipeline.sh`:
+   - `RUN_CELLRANGER=1` to include this step (and `RUN_FASTQC=1` for FastQC in parallel)
+   - Set `NOTIFY_EMAIL` for LSF notifications
+3. Module scripts (including Cell Ranger) read **`project_parameters.Config.yaml`** only — not the generated daedalus overlay. Configure paths and Cell Ranger parameters there as in [Usage](#usage) above.
+4. Cell Ranger is submitted with `bash submit-multiple-jobs.sh` from the login node so the launcher can capture the **waiter** job ID and wire dependencies to upstream analysis.
+
+You do **not** run `bsub < submit-multiple-jobs.sh` when using this entry point.
+
+### Cell Ranger on LSF (all launcher paths)
+
+Cell Ranger runs **outside** the Seurat Apptainer/Singularity image used for downstream daedalus modules. LSF jobs load cluster modules from `j1.sh` / `j2.sh`; by default that is `cellranger/8.0.1` (and `python/3.9.9` where `j2.sh` needs it), as provided on St Jude HPC. Change those `module load` lines only if your site uses different versions.
 
 
 ## Folder content

@@ -64,7 +64,8 @@ tail -n +2 "$metadata_file" | sort -t$'\t' -k"$sample_col_num" | while IFS=$'\t'
       unique_name="${sample}_rep${rep}_${original_base}"
       temp_fastq="${unique_name}.fastq.gz"
 
-      # Create a symlink with a unique name
+      # Create a symlink with a unique name (remove stale link from a prior run)
+      rm -f "$temp_fastq"
       ln -s "$file" "$temp_fastq"
 
       # Run FastQC
