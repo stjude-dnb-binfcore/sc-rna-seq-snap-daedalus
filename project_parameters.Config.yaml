@@ -29,7 +29,7 @@ resource_profile:
 # Which modules to run (all optional).
 # run_fastqc / run_cellranger use static LSF scripts under analyses/* (not scaled by the estimator).
 # When both are enabled they start in parallel; downstream WDL waits on Cell Ranger's LSF waiter job.
-# Example — upstream only: run_upstream: true, all others false.
+# Example for upstream only: run_upstream: true, all others false.
 workflow_profile:
   run_fastqc: false
   run_cellranger: false

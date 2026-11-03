@@ -36,8 +36,7 @@ validates Sprocket inputs—it does **not** submit LSF jobs.
 
 If `workflow_profile.run_cellranger: true` and alignments are **not** on disk yet,
 dry-run still plans downstream resources from metadata (baseline cells/sample) and
-**skips** `sprocket validate` until outputs exist. Use `--submit` to run Cell Ranger,
-wait on the LSF waiter, then estimate and launch Sprocket automatically.
+**skips** `sprocket validate` until outputs exist. Use `--submit` to run Cell Ranger, then estimate resource and launch Sprocket automatically after Cell Ranger alignment completes successfully.
 
 ```bash
 bash launch-daedalus-downstream.sh
@@ -313,6 +312,7 @@ These are regenerated on each launch:
 | Script | Purpose |
 |--------|---------|
 | `launch-daedalus-sprocket.sh` | Main orchestrator (estimate → render config → check → validate → run → resource report) |
+| `launch-daedalus-preprocessing-lsf.sh` | Submit optional FastQC and Cell Ranger via static LSF scripts (`run_fastqc` / `run_cellranger`); used by `launch-daedalus-sprocket.sh`, not the downstream resource estimator |
 | `estimate-daedalus-downstream-resources.R` | Cell Ranger metrics → LSF resources + YAML/JSON |
 | `render-sprocket-config.sh` | Writes `inputs/sprocket.generated.toml` for launch |
 | `monitor-daedalus-task-emails.sh` | Background per-module start/complete emails while Sprocket runs |
