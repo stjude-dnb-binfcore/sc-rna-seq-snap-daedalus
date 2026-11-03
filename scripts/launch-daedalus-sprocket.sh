@@ -45,9 +45,12 @@ CONFIG="${DAEDALUS_ROOT}/sprocket.toml"
 GENERATED_CONFIG="${DAEDALUS_ROOT}/inputs/sprocket.generated.toml"
 GENERATED="${DAEDALUS_ROOT}/inputs/generated_downstream.json"
 SPROCKET_INPUTS="${DAEDALUS_ROOT}/inputs/sprocket_inputs.json"
+# Sprocket defaults to ./out (cwd-relative); pin under the project root so runs,
+# monitors, and collect-resource-usage.sh agree regardless of launch cwd.
+SPROCKET_OUTPUT_DIR="${DAEDALUS_ROOT}/out"
 NOTIFY_SCRIPT="${SCRIPT_DIR}/daedalus-notify-email.sh"
 
-mkdir -p "${DAEDALUS_ROOT}/inputs"
+mkdir -p "${DAEDALUS_ROOT}/inputs" "${SPROCKET_OUTPUT_DIR}"
 
 if [[ ! -f "${WORKFLOW}" ]]; then
   echo "Missing static WDL: ${WORKFLOW}" >&2
@@ -207,7 +210,7 @@ Per-module start/complete emails follow via monitor-daedalus-task-emails.sh."
 
 set +e
 # Shared directories are passed as String paths, so call caching cannot detect changes to their contents.
-SPROCKET_RUN_FLAGS=(run "${WORKFLOW}" @"${INPUTS}" --config "${CONFIG}" --output-dir "${DAEDALUS_ROOT}/out" --no-call-cache)
+SPROCKET_RUN_FLAGS=(run "${WORKFLOW}" @"${INPUTS}" --config "${CONFIG}" --output-dir "${SPROCKET_OUTPUT_DIR}" --no-call-cache)
 sprocket "${SPROCKET_RUN_FLAGS[@]}" &
 SPROCKET_PID=$!
 
