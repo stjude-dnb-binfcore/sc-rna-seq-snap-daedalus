@@ -24,7 +24,7 @@ resource_profile:
   total_estimated_cells: null            # computed from Cell Ranger totals when available
   resource_tier: "default"               # default | large | xlarge
   scale_factor: 1
-  container_image: "./sc-rna-seq-snap-daedalus/rstudio_4.4.0_seurat_4.4.0_latest.sif"                  # null = <root_dir>/rstudio_4.4.0_seurat_4.4.0_latest.sif
+  container_image: "/sc-rna-seq-snap-daedalus/rstudio_4.4.0_seurat_4.4.0_latest.sif"                  # null = <root_dir>/rstudio_4.4.0_seurat_4.4.0_latest.sif
 
 # Which downstream modules to run via WDL/Sprocket (all optional).
 # Toggle any combination; each enabled module waits on the last completed step.
