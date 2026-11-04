@@ -88,8 +88,8 @@ the cache key.
 
 ### Option 2 — tmux or screen
 
-Same flow as Option 1, but attach/detach instead of a log file—useful if you
-want a live terminal without `tail -f`.
+Same flow as Option 1, but attach/detach `tmux` session to monitor run in the terminal instead of using `tail -f` to monitor the log file — useful if you want a live terminal without `tail -f`.
+
 
 ```bash
 cd sc-rna-seq-snap-daedalus
@@ -340,6 +340,7 @@ These are regenerated on each launch:
 | `collect-resource-usage.sh` | Post-run LSF resource report (requested vs actual per module) |
 | `extract-resource-usage.sh` | Convenience wrapper: `--latest --json` into `out/resource_usage/` |
 | `test-downstream-layout.sh` | Sanity-check that expected WDL/inputs files exist |
+| `daedalus_validate_outputs.R` | Post-run biological checks (metadata, Cell Ranger, module RDS); see `workflows/BIOLOGICAL_VALIDATION.md` |
 
 Root launcher (one level up): `launch-daedalus-downstream.sh`
 
@@ -413,6 +414,7 @@ Notifications go to **`CONTACT_EMAIL`** in `project_parameters.Config.yaml` (pas
 | Each downstream module started | `monitor-daedalus-task-emails.sh` when LSF `job_id` appears for that module |
 | Each downstream module completed / failed | Monitor when LSF job reaches `DONE` / `EXIT` |
 | Daedalus downstream finished / failed | Launch script after `sprocket run` exits (`[daedalus] Daedalus downstream: completed` or `: failed`) |
+| Biological validation started / completed / failed | `launch-daedalus-sprocket.sh` after downstream Sprocket succeeds, when `workflow_profile.run_biological_validation: true` |
 | Missed module complete (catch-up) | `bash scripts/monitor-daedalus-task-emails.sh --daedalus-root . --to CONTACT_EMAIL --finalize-only` |
 
 Module emails use **`CONTACT_EMAIL`** from `project_parameters.Config.yaml`. The monitor runs in the background while Sprocket executes and polls `out/runs/daedalus_from_cellranger/_latest/calls/`.
