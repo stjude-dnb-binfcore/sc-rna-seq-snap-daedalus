@@ -42,6 +42,7 @@ workflow_profile:
   run_de_go: true
   run_rshiny: true
   run_project_updates: true
+  run_biological_validation: true
 
 # the following parameters are set up as default values and/or are specific for the following modules: 
 # `./analyses/fastqc-analysis`
