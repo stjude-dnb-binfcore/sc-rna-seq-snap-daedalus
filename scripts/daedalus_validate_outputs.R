@@ -393,23 +393,42 @@ validate_cluster <- function(r, cfg, daedalus_root) {
   r
 }
 
+resolve_cell_types_annotation_path <- function(cfg, root) {
+  annotations_dir <- trimws(as.character(
+    cfg$annotations_dir_rshiny_app %||% "cell_types_annotations_all"
+  ))
+  annotations_file <- trimws(as.character(
+    cfg$annotations_filename_rshiny_app %||% "seurat_obj_cell_types_annotations_all.rds"
+  ))
+  if (!nzchar(annotations_dir) || !nzchar(annotations_file)) {
+    return(list(path = NA_character_, dir = annotations_dir, file = annotations_file))
+  }
+  results_base <- file.path(root, "analyses", "cell-types-annotation", "results")
+  list(
+    path = file.path(results_base, annotations_dir, annotations_file),
+    dir = annotations_dir,
+    file = annotations_file
+  )
+}
+
 validate_cell_types <- function(r, cfg, daedalus_root) {
   root <- cfg$root_dir %||% daedalus_root
-  merged <- file.path(
-    root, "analyses", "cell-types-annotation", "results",
-    "seurat_obj_cell_types_annotations_all.rds"
-  )
-  broad <- file.path(
-    root, "analyses", "cell-types-annotation", "results",
-    "seurat_obj_SingleR_broad.rds"
-  )
-  if (file.exists(merged)) {
-    r <- add_check(r, "cell_types_merged", "pass", merged)
-  } else if (file.exists(broad)) {
-    r <- add_warning(r, paste0("Merged cell-types object missing; found broad SingleR only: ", broad))
-    r <- add_check(r, "cell_types_broad", "pass", broad)
+  target <- resolve_cell_types_annotation_path(cfg, root)
+  if (is.na(target$path)) {
+    r <- add_error(r, paste0(
+      "Invalid cell-types paths in config (annotations_dir_rshiny_app / ",
+      "annotations_filename_rshiny_app)"
+    ))
+    return(add_check(r, "cell_types", "fail", "invalid yaml paths"))
+  }
+  if (file.exists(target$path)) {
+    r <- add_check(r, "cell_types", "pass", target$path)
   } else {
-    r <- add_error(r, "Missing cell-types outputs (expected merged or SingleR broad RDS)")
+    r <- add_error(r, paste0(
+      "Missing cell-types annotation object: ", target$path,
+      " (from annotations_dir_rshiny_app=\"", target$dir,
+      "\", annotations_filename_rshiny_app=\"", target$file, "\")"
+    ))
     r <- add_check(r, "cell_types", "fail", "missing")
   }
   r

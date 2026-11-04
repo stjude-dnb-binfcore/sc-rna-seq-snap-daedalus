@@ -17,7 +17,7 @@ start, pass (`[daedalus] biological validation: completed`), or failure. The dow
 | Upstream deliverable | `run_upstream` | `seurat_obj_merged_filtered.rds` exists; filtered cell count vs Cell Ranger totals |
 | Integrative deliverable | `run_integrative` | `seurat_obj_integrated_<integration_method>.rds` exists; ncol vs upstream |
 | Cluster deliverable | `run_cluster` | `seurat_obj_clusters_all.rds` under `01_cluster_cell_calling_<resolution_clustering_module>/`; cluster count at **`resolution_list_find_markers`** (metadata column); **warning if fewer than 2 clusters** |
-| Cell types deliverable | `run_cell_types` | Merged or SingleR broad annotation RDS |
+| Cell types deliverable | `run_cell_types` | Seurat RDS at `cell-types-annotation/results/<annotations_dir_rshiny_app>/<annotations_filename_rshiny_app>` (same keys as the R Shiny app) |
 
 Warnings (e.g. aggressive filtering) do not fail the run unless you pass `--strict`.
 
