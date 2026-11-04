@@ -33,7 +33,7 @@ if (!dir.exists(reference_report_dir)) {
 
 ################################################################################################################
 
-resolution = yaml$resolution_list_find_markers
+#resolution = yaml$resolution_list_find_markers
 resolution_for_input_data = yaml$resolution_find_markers
 integration_method = yaml$integration_method_clustering_module
 input_data = yaml$module_with_input_data
@@ -67,7 +67,7 @@ rmarkdown::render('04-cell-types-annotation-reference.Rmd', clean = TRUE,
                                 reference_dir = yaml$reference_dir_annotation_module,
                                 reference_file_name = yaml$reference_file_name_annotation_module,
                                 genome_name = yaml$genome_name_upstream,
-                                resolution = yaml$resolution_list_find_markers,
+                                #resolution = yaml$resolution_list_find_markers,
                                 celltype_reference = yaml$celltype_reference_module,
 
                                 root_dir = yaml$root_dir,
