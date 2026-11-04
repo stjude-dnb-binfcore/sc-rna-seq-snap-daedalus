@@ -158,6 +158,7 @@ sample_ids_from_metadata <- function(metadata_path) {
 }
 
 PLANNED_CELLS_PER_SAMPLE_DEFAULT <- 50000L
+CELLRANGER_ESTIMATED_CELLS_COLUMN <- "Estimated Number of Cells"
 
 parse_cellranger_metrics <- function(metrics_path) {
   missing <- function(status) list(cells = NA_integer_, status = status)

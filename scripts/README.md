@@ -88,8 +88,8 @@ the cache key.
 
 ### Option 2 — tmux or screen
 
-Same flow as Option 1, but attach/detach instead of a log file—useful if you
-want a live terminal without `tail -f`.
+Same flow as Option 1, but attach/detach `tmux` session to monitor run in the terminal instead of using `tail -f` to monitor the log file — useful if you want a live terminal without `tail -f`.
+
 
 ```bash
 cd sc-rna-seq-snap-daedalus
