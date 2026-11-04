@@ -33,9 +33,29 @@ bash scripts/daedalus-apptainer-rscript.sh --daedalus-root . -- \
   --json out/validation/biological_validation.json
 ```
 
-Plain `Rscript` on the login node still runs file-existence checks but skips cell-count / `ncol` checks when Seurat is missing.
+### Config file
 
-Uses `inputs/project_parameters.generated.yaml` when present, else master Config.
+The script reads **`inputs/project_parameters.generated.yaml`** when that file exists;
+otherwise it falls back to **`project_parameters.Config.yaml`**. Module-specific checks
+(see table above) run only when the matching **`workflow_profile.run_*`** flag is
+`true` (for example `run_upstream`, `run_integrative`, `run_cluster`, `run_cell_types`).
+If you edit toggles in the master Config, refresh the generated overlay before
+validating so it matches what Sprocket would use:
+
+```bash
+bash launch-daedalus-downstream.sh    # dry-run: no --submit; refreshes generated YAML/inputs
+```
+
+### Seurat and where to run
+
+Plain **`Rscript` on a login node** without Seurat still runs metadata / Cell Ranger
+checks and file-existence checks, but **skips** steps that load Seurat objects (filtered
+and integrated **`ncol`**, cluster metadata, cross-step cell counts).
+
+When **Seurat** or **SeuratObject** is installed, the script **loads** upstream,
+integrative, cluster, and cell-type RDS files. Use an **interactive node** (or
+`daedalus-apptainer-rscript.sh` as above) with **enough memory for the largest
+object**—avoid login nodes for full validation.
 
 ## Disable
 
