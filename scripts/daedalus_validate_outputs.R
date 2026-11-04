@@ -130,6 +130,108 @@ seurat_ncol <- function(path) {
   as.integer(ncol(obj))
 }
 
+find_markers_resolution <- function(cfg) {
+  raw <- cfg$resolution_list_find_markers
+  if (is.null(raw)) return(NULL)
+  if (length(raw) < 1L) return(NULL)
+  val <- if (is.list(raw)) raw[[1L]] else raw[[1L]]
+  num <- suppressWarnings(as.numeric(val))
+  if (!is.na(num)) return(num)
+  trimws(as.character(val))
+}
+
+format_cluster_resolution <- function(res) {
+  if (is.numeric(res) && !is.na(res) && res == as.integer(res)) {
+    return(as.character(as.integer(res)))
+  }
+  as.character(res)
+}
+
+cluster_res_metadata_col <- function(cfg, res) {
+  assay <- cfg$assay_clustering_module %||% "RNA"
+  paste0(assay, "_snn_res.", format_cluster_resolution(res))
+}
+
+seurat_metadata_df <- function(obj) {
+  if (is.null(obj)) return(NULL)
+  tryCatch({
+    if (requireNamespace("SeuratObject", quietly = TRUE)) {
+      return(as.data.frame(SeuratObject::`[[`(obj)))
+    }
+    if (requireNamespace("Seurat", quietly = TRUE)) {
+      return(as.data.frame(Seurat::`[[`(obj)))
+    }
+    NULL
+  }, error = function(e) NULL)
+}
+
+resolve_cluster_seurat_path <- function(cfg, root) {
+  mod_label <- cfg$resolution_clustering_module %||% "default_multiple"
+  step1_dir <- file.path(
+    root, "analyses", "cluster-cell-calling", "results",
+    paste0("01_cluster_cell_calling_", mod_label)
+  )
+  candidates <- c(
+    file.path(step1_dir, "seurat_obj_clusters_all.rds")
+  )
+  res <- find_markers_resolution(cfg)
+  if (!is.null(res)) {
+    candidates <- c(
+      candidates,
+      file.path(step1_dir, paste0("seurat_obj_clusters_", format_cluster_resolution(res), ".rds"))
+    )
+  }
+  hits <- candidates[file.exists(candidates)]
+  if (length(hits)) return(hits[[1L]])
+
+  results_root <- file.path(root, "analyses", "cluster-cell-calling", "results")
+  if (!dir.exists(results_root)) return(NULL)
+  recursive <- list.files(
+    results_root,
+    pattern = "^seurat_obj_clusters_all\\.rds$",
+    recursive = TRUE,
+    full.names = TRUE
+  )
+  if (!length(recursive)) return(NULL)
+  ord <- order(
+    grepl("/01_cluster_cell_calling_", recursive, fixed = TRUE),
+    decreasing = TRUE
+  )
+  recursive[[ord[[1L]]]]
+}
+
+cluster_count_for_resolution <- function(obj, cfg, res) {
+  meta <- seurat_metadata_df(obj)
+  if (is.null(meta)) return(list(n = NA_integer_, column = NA_character_, source = "metadata"))
+  col <- cluster_res_metadata_col(cfg, res)
+  if (col %in% names(meta)) {
+    n <- length(unique(meta[[col]]))
+    return(list(n = as.integer(n), column = col, source = "metadata"))
+  }
+  suffix <- paste0("_snn_res.", format_cluster_resolution(res))
+  matches <- grep(paste0(suffix, "$"), names(meta), value = TRUE)
+  if (length(matches) == 1L) {
+    n <- length(unique(meta[[matches[[1L]]]]))
+    return(list(n = as.integer(n), column = matches[[1L]], source = "metadata"))
+  }
+  list(n = NA_integer_, column = col, source = "metadata")
+}
+
+report_cluster_count <- function(r, n_cl, count_detail) {
+  if (is.na(n_cl)) {
+    r <- add_warning(r, "Could not determine cluster count for validation")
+    return(add_check(r, "cluster_count", "warn", "unknown"))
+  }
+  if (n_cl < 2L) {
+    r <- add_warning(r, sprintf(
+      "Fewer than 2 clusters detected (%d); expected at least 2 for meaningful clustering (%s)",
+      n_cl, count_detail
+    ))
+    return(add_check(r, "cluster_count", "warn", count_detail))
+  }
+  add_check(r, "cluster_count", "pass", count_detail)
+}
+
 validate_metadata_cellranger <- function(r, cfg, daedalus_root) {
   meta_ids <- metadata_sample_ids(cfg)
   data_dir <- resolve_data_dir(cfg, daedalus_root)
@@ -226,28 +328,68 @@ validate_integrative <- function(r, cfg, daedalus_root, upstream_ncol = NA_integ
 validate_cluster <- function(r, cfg, daedalus_root) {
   root <- cfg$root_dir %||% daedalus_root
   results_root <- file.path(root, "analyses", "cluster-cell-calling", "results")
-  hits <- list.files(
-    results_root,
-    pattern = "^seurat_obj_clusters_all\\.rds$",
-    recursive = TRUE,
-    full.names = TRUE
-  )
-  if (!length(hits)) {
+  cluster_rds <- resolve_cluster_seurat_path(cfg, root)
+  if (is.null(cluster_rds) || !nzchar(cluster_rds)) {
     r <- add_error(r, paste0("No cluster Seurat object under ", results_root))
     return(add_check(r, "cluster_seurat", "fail", "missing"))
   }
-  r <- add_check(r, "cluster_seurat", "pass", hits[[1L]])
-  if (requireNamespace("SeuratObject", quietly = TRUE) || requireNamespace("Seurat", quietly = TRUE)) {
-    obj <- tryCatch(readRDS(hits[[1L]]), error = function(e) NULL)
-    if (!is.null(obj)) {
-      n_cl <- length(unique(SeuratObject::Idents(obj)))
-      if (n_cl < 2L) {
-        r <- add_warning(r, sprintf("Cluster object has %d cluster(s); expected at least 2", n_cl))
-      } else {
-        r <- add_check(r, "cluster_count", "pass", as.character(n_cl))
+  r <- add_check(r, "cluster_seurat", "pass", cluster_rds)
+
+  find_markers_res <- find_markers_resolution(cfg)
+  has_seurat <- requireNamespace("SeuratObject", quietly = TRUE) ||
+    requireNamespace("Seurat", quietly = TRUE)
+  if (!has_seurat) {
+    r <- add_warning(r, paste0(
+      "Seurat not available; skipped cluster count check (cannot verify >= 2 clusters) for ",
+      cluster_rds
+    ))
+    r <- add_check(r, "cluster_count", "warn", "skipped (no Seurat)")
+  } else {
+    obj <- tryCatch(readRDS(cluster_rds), error = function(e) NULL)
+    if (is.null(obj)) {
+      r <- add_warning(r, paste0("Could not read cluster Seurat object: ", cluster_rds))
+      r <- add_check(r, "cluster_count", "warn", "unreadable object")
+    } else {
+      n_cl <- NA_integer_
+      count_detail <- ""
+      if (!is.null(find_markers_res)) {
+        counted <- cluster_count_for_resolution(obj, cfg, find_markers_res)
+        n_cl <- counted$n
+        if (!is.na(n_cl)) {
+          count_detail <- sprintf(
+            "res=%s col=%s clusters=%d",
+            format_cluster_resolution(find_markers_res),
+            counted$column,
+            n_cl
+          )
+        } else {
+          r <- add_warning(r, sprintf(
+            "Could not find cluster column for resolution_list_find_markers (%s); using active Idents",
+            format_cluster_resolution(find_markers_res)
+          ))
+        }
       }
+      if (is.na(n_cl)) {
+        n_cl <- length(unique(SeuratObject::Idents(obj)))
+        count_detail <- sprintf("idents=%d (fallback)", n_cl)
+      }
+      r <- report_cluster_count(r, n_cl, count_detail)
     }
   }
+
+  if (!is.null(find_markers_res)) {
+    markers_tsv <- file.path(
+      results_root, "02_find_markers",
+      paste0("Res_", format_cluster_resolution(find_markers_res), "_Markers_all.tsv")
+    )
+    if (file.exists(markers_tsv)) {
+      r <- add_check(r, "find_markers_table", "pass", basename(markers_tsv))
+    } else {
+      r <- add_warning(r, paste0("Missing find-markers output (step 2 may not have run): ", markers_tsv))
+      r <- add_check(r, "find_markers_table", "warn", "missing")
+    }
+  }
+
   r
 }
 
