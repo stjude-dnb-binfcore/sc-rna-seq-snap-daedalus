@@ -1,0 +1,45 @@
+#!/bin/bash
+# Submit the Daedalus downstream launcher (Sprocket driver) as its own LSF job so
+# orchestration is not tied to a login-node session.
+#
+# Usage (from the daedalus project root — directory with launch-daedalus-downstream.sh):
+#
+#   module load sprocket R singularity   # on the submit host, before bsub
+#   bsub scripts/submit-daedalus-launcher.lsf
+#
+# Optional overrides on the bsub command line (examples):
+#   bsub -q long -W 120:00 scripts/submit-daedalus-launcher.lsf
+#   bsub -P myaccount scripts/submit-daedalus-launcher.lsf
+#
+# Logs: daedalus-launch.log / daedalus-launch.err in the project root (-cwd .).
+# Monitor: bjobs -J daedalus-launcher && tail -f daedalus-launch.log
+
+#BSUB -J daedalus-launcher
+#BSUB -q standard
+#BSUB -n 1
+#BSUB -W 72:00
+#BSUB -R "rusage[mem=8000]"
+#BSUB -cwd "."
+#BSUB -oo daedalus-launch.log
+#BSUB -eo daedalus-launch.err
+
+set -euo pipefail
+
+export PATH="/usr/bin:/bin:/usr/local/bin:${PATH:-}"
+
+if type module >/dev/null 2>&1; then
+  module load sprocket R singularity
+fi
+
+if ! command -v sprocket >/dev/null 2>&1; then
+  echo "ERROR: sprocket not found after module load. Load modules before bsub or fix module path." >&2
+  exit 1
+fi
+
+if [[ ! -f launch-daedalus-downstream.sh ]]; then
+  echo "ERROR: launch-daedalus-downstream.sh not found in job cwd: $(pwd)" >&2
+  echo "Submit from the daedalus project root (bsub scripts/submit-daedalus-launcher.lsf)." >&2
+  exit 1
+fi
+
+exec bash launch-daedalus-downstream.sh --submit

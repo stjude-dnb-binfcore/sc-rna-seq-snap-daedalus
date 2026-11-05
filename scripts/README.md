@@ -48,59 +48,147 @@ To submit after a successful dry run, add `--submit` (see
 
 ---
 
-## Safe ways to launch downstream analysis
+## Safe ways to launch downstream analysis (multi-hour, many modules)
 
 Dry-run first (`bash launch-daedalus-downstream.sh`), then submit only after
 `sprocket validate` succeeds.
 
-Sprocket runs each **module** on LSF compute nodes. The **launcher** on the node
-where you started it stays alive until `sprocket run` finishes (task email
-monitor and resource collection). `nohup` keeps that launcher running after you
-log out—you still need to monitor progress (see below).
+### How orchestration works (read this once)
 
-### Option 1 — nohup in the background (recommended)
+| Layer | Where it runs | How long it must stay up |
+|-------|----------------|---------------------------|
+| **Sprocket driver** | Node where you start the launcher (usually a **login** node) | **Entire** downstream run—often many hours |
+| **Each module** (upstream, cluster, …) | **LSF compute** nodes | Until that module’s job finishes |
+
+Sprocket submits each module to LSF and waits for the workflow graph to finish.
+If the **driver** exits early (login-node limits, OOM, killed shell, lost
+session), LSF jobs can still **succeed** while the pipeline **never schedules
+the next module**, module/workflow **emails stop**, and resource collection may
+not run. That is an **environment + launch** issue, not failed R analysis.
+
+**`tmux` / `nohup`** only protect you from **logging out** of SSH. They do **not**
+guarantee the login node will keep `sprocket run` alive for a full day. For long
+runs, prefer **Option 2 (tmux)** for visibility or **Option 3 (LSF-wrapped
+launcher)** so the driver itself has a job slot.
+
+### Before you submit (once per project or after config changes)
+
+From the **daedalus project root** (directory that contains
+`launch-daedalus-downstream.sh`):
 
 ```bash
-cd sc-rna-seq-snap-daedalus
-module load sprocket R
+cd /path/to/sc-rna-seq-snap-daedalus    # your deployed copy
+module load sprocket R singularity
+
+# 1) Recipient for workflow + module emails (edit YAML if needed)
+grep CONTACT_EMAIL project_parameters.Config.yaml
+
+# 2) Confirm mail works from this login node (emails use mailx/mail here)
+bash scripts/daedalus-notify-email.sh \
+  --to "$(grep '^CONTACT_EMAIL:' project_parameters.Config.yaml | sed 's/.*: *"\?\([^"]*\)"\?.*/\1/')" \
+  --subject "[daedalus] email test" \
+  --body "If you receive this, daedalus-notify-email.sh works on this host."
+
+# 3) Dry run — refresh inputs, check WDL, validate (no LSF module jobs)
+bash launch-daedalus-downstream.sh
+```
+
+Fix any `sprocket validate` errors before `--submit`.
+
+### Option 1 — tmux or screen (**recommended** for interactive HPC)
+
+Use a **named session** so the launcher keeps running after you detach. Run
+**dry-run outside tmux** (step 3 above) or once inside tmux; you do **not** need
+to dry-run before every submit if inputs are already valid.
+
+```bash
+cd /path/to/sc-rna-seq-snap-daedalus
+module load sprocket R singularity
+
+tmux new -s daedalus
+```
+
+**Inside the tmux pane** (only this step blocks for hours):
+
+```bash
+cd /path/to/sc-rna-seq-snap-daedalus
+module load sprocket R singularity
+bash launch-daedalus-downstream.sh --submit
+```
+
+Detach without stopping the run: **Ctrl+b**, then **d**.  
+Reattach later:
+
+```bash
+tmux attach -t daedalus
+```
+
+Confirm the driver is still alive:
+
+```bash
+pgrep -u "$USER" -af sprocket
+ps -u "$USER" -o pid,etime,cmd | grep -E 'launch-daedalus-sprocket|launch-daedalus-downstream' | grep -v grep
+```
+
+You should see `[daedalus] Daedalus downstream: submitted` in the tmux scrollback
+(or re-run dry-run once and watch for that line on submit). Per-module emails
+follow while **`sprocket run` is still running** (see [Email notifications](#email-notifications)).
+
+### Option 2 — nohup (background log file)
+
+Same as tmux for logout, but easier to lose track of the launcher PID. Prefer
+tmux unless you already use nohup routinely.
+
+```bash
+cd /path/to/sc-rna-seq-snap-daedalus
+module load sprocket R singularity
 
 nohup bash launch-daedalus-downstream.sh --submit > daedalus-launch.log 2>&1 &
-echo $!   # note the launcher PID
+echo "Launcher PID: $!"
 tail -f daedalus-launch.log
 ```
 
-Do **not** treat `nohup ... &` as “submit and forget” without monitoring: if the
-launcher dies early, downstream LSF jobs may already be running while emails and
-resource collection never finish.
+Do **not** treat this as fire-and-forget: if the launcher PID disappears while
+`bjobs` still shows `daedalus*` module jobs, the run is **orphaned** (see
+Troubleshooting).
+
+### Option 3 — submit the launcher on LSF (**best for very long runs**)
+
+Give the **launcher + Sprocket driver** their own LSF job so they are not tied
+to a login-node session. Use `scripts/submit-daedalus-launcher.lsf` (edit
+`#BSUB` lines in that file for queue, walltime, or memory if needed).
+
+```bash
+cd /path/to/sc-rna-seq-snap-daedalus
+module load sprocket R singularity
+
+# Dry-run once on the login node (recommended), then:
+bsub scripts/submit-daedalus-launcher.lsf
+```
+
+Optional `bsub` overrides without editing the file, e.g. `-q long -W 120:00` or
+`-P myaccount` before the script path.
+
+Monitor:
+
+```bash
+bjobs -J daedalus-launcher
+tail -f daedalus-launch.log
+```
 
 ### Monitoring (any option)
 
 | What | How |
 |------|-----|
-| LSF module jobs | `bjobs -u $USER` |
-| Launcher / Sprocket | `daedalus-launch.log`, or `out/runs/daedalus_from_cellranger/` |
-| Email | `CONTACT_EMAIL` in YAML — workflow and per-module notifications |
+| LSF module jobs | `bjobs -u "$USER" -J 'daedalus*'` |
+| Launcher / Sprocket driver | `pgrep -u "$USER" -af sprocket`; tmux pane or `daedalus-launch.log` |
+| Run progress on disk | `out/runs/daedalus_from_cellranger/` — new folders under `calls/` per module |
+| Email | `CONTACT_EMAIL` in YAML; see [Email notifications](#email-notifications) |
 | Task stderr (example) | `tail -f out/runs/daedalus_from_cellranger/<run_id>/calls/<task>/attempts/0/stderr` |
 
 Every submission disables Sprocket call caching because shared directories are
 passed as `String` paths, so changes to their contents are not represented in
 the cache key.
-
-### Option 2 — tmux or screen
-
-Same flow as Option 1, but attach/detach `tmux` session to monitor run in the terminal instead of using `tail -f` to monitor the log file — useful if you want a live terminal without `tail -f`.
-
-
-```bash
-cd sc-rna-seq-snap-daedalus
-module load sprocket R
-
-tmux new -s daedalus
-bash launch-daedalus-downstream.sh
-bash launch-daedalus-downstream.sh --submit
-# Detach: Ctrl+b then d
-# Reattach later: tmux attach -t daedalus
-```
 
 ---
 
@@ -331,6 +419,7 @@ These are regenerated on each launch:
 |--------|---------|
 | `launch-daedalus-sprocket.sh` | Main orchestrator (estimate → render config → check → validate → run → resource report) |
 | `launch-daedalus-preprocessing-lsf.sh` | Submit optional FastQC and Cell Ranger via static LSF scripts (`run_fastqc` / `run_cellranger`); used by `launch-daedalus-sprocket.sh`, not the downstream resource estimator |
+| `submit-daedalus-launcher.lsf` | LSF job script: run `bsub scripts/submit-daedalus-launcher.lsf` from project root so the Sprocket driver survives multi-hour runs (see Option 3 above) |
 | `estimate-daedalus-downstream-resources.R` | Cell Ranger metrics → LSF resources + YAML/JSON |
 | `render-sprocket-config.sh` | Writes `inputs/sprocket.generated.toml` for launch |
 | `monitor-daedalus-task-emails.sh` | Background per-module start/complete emails while Sprocket runs |
@@ -421,6 +510,24 @@ Module emails use **`CONTACT_EMAIL`** from `project_parameters.Config.yaml`. The
 
 To change the recipient, edit `CONTACT_EMAIL` in the master YAML and re-run the launcher.
 
+**Why tmux “did not send emails” (common causes)**
+
+| Symptom | Likely cause |
+|---------|----------------|
+| Some **started** emails, no **completed** / no **downstream finished** | **`sprocket run` exited** while LSF modules were still running or before the monitor saw completion. tmux does not prevent login-node kills of the driver. |
+| No emails at all | **`mailx` / `mail` missing** on the login node (`daedalus-notify-email.sh` skips silently). Run the [email test](#before-you-submit-once-per-project-or-after-config-changes) command. |
+| No `[daedalus] Daedalus downstream: submitted` | Submit never reached Sprocket (dry-run only, validate failed, or launcher died during preprocessing). |
+| LSF job emails but no `[daedalus] cluster: completed` | **LSF `-N`** mail is separate from the Daedalus monitor; monitor needs the driver alive until it detects `outputs.json` or `work/*.done`. |
+
+After an orphaned run, catch up module notifications (does not restart the pipeline):
+
+```bash
+bash scripts/monitor-daedalus-task-emails.sh \
+  --daedalus-root . \
+  --to "$(grep '^CONTACT_EMAIL:' project_parameters.Config.yaml | sed 's/.*: *"\?\([^"]*\)"\?.*/\1/')" \
+  --finalize-only
+```
+
 ---
 
 ## Troubleshooting
@@ -432,6 +539,8 @@ To change the recipient, edit `CONTACT_EMAIL` in the master YAML and re-run the 
 | Missing Cell Ranger metrics | Complete Cell Ranger or run `Rscript scripts/estimate-daedalus-downstream-resources.R --daedalus-root . --output inputs/generated_downstream.json --estimated-cells-per-sample <count>` |
 | Container pull fails / `repository name must be lowercase` | Local `.sif` paths must use the `file://` scheme for Sprocket (auto-added in `sprocket_inputs.json`). Keep plain paths in YAML; re-run the launcher to regenerate inputs. |
 | Wrong modules running | Edit `workflow_profile` in `project_parameters.Config.yaml`, then re-launch |
+| Next module never starts; run stuck in `out/sprocket.db` as `running` | **Sprocket driver died** while an LSF module was still running. Confirm with `pgrep -u "$USER" -af sprocket`. Resume downstream with updated `workflow_profile` or Sprocket recover; use [Option 3](#option-3--submit-the-launcher-on-lsf-best-for-very-long-runs) for the next attempt. |
+| Missing or partial email notifications | Driver exited early, or `mailx`/`mail` unavailable. See [Why tmux “did not send emails”](#email-notifications). |
 | LSF job killed at memory limit (`TERM_MEMLIMIT`) | See [LSF memory limit (`TERM_MEMLIMIT`)](#lsf-memory-limit-term_memlimit) below |
 
 ### LSF memory limit (`TERM_MEMLIMIT`)
