@@ -13,6 +13,7 @@ required=(
   scripts/daedalus_validate_outputs.R
   scripts/launch-daedalus-sprocket.sh
   scripts/launch-daedalus-preprocessing-lsf.sh
+  scripts/submit-daedalus-launcher.lsf
   scripts/daedalus-read-config.sh
   scripts/collect-resource-usage.sh
   scripts/extract-resource-usage.sh
