@@ -16,25 +16,19 @@ workflow daedalus_from_cellranger {
             cellranger_summary: "TSV summary of sample IDs and estimated cells.",
             estimated_cells: "Estimated cell counts in sample order.",
             num_samples: "Number of Cell Ranger samples in the run.",
-            downstream_resources: "Scaled CPU, memory, and R future limits for each module.",
-            upstream_cpu: "CPU cores requested for upstream analysis.",
-            upstream_memory_gb: "Memory in GB requested for upstream analysis.",
-            upstream_future_globals_gib: "R future global size limit for upstream analysis.",
-            integrative_cpu: "CPU cores requested for integrative analysis.",
-            integrative_memory_gb: "Memory in GB requested for integrative analysis.",
-            integrative_future_globals_gib: "R future global size limit for integrative analysis.",
+            downstream_resources: "Scaled CPU, memory, and R future limits for each module (see `DownstreamResources` in `tasks/preprocessing_types.wdl`).",
             upstream_completion: "Completion flag when upstream analysis is enabled and succeeds.",
             upstream_results: "Path to upstream analysis results when `run_upstream` is true.",
+            integrative_completion: "Completion flag when integrative analysis is enabled and succeeds.",
+            integrative_results: "Path to integrative analysis results when `run_integrative` is true.",
             cluster_completion: "Completion flag when cluster cell calling is enabled and succeeds.",
             cluster_results: "Path to cluster cell calling results when `run_cluster` is true.",
+            contamination_removal_completion: "Completion flag when contamination removal is enabled and succeeds.",
+            contamination_removal_results: "Path to contamination removal results when `run_contamination_removal` is true.",
             cell_types_completion: "Completion flag when cell-type annotation is enabled and succeeds.",
             cell_types_results: "Path to cell-type annotation results when `run_cell_types` is true.",
             rshiny_completion: "Completion flag when R Shiny packaging is enabled and succeeds.",
             rshiny_results: "Path to R Shiny app results when `run_rshiny` is true.",
-            integrative_completion: "Completion flag when integrative analysis is enabled and succeeds.",
-            integrative_results: "Path to integrative analysis results when `run_integrative` is true.",
-            contamination_removal_completion: "Completion flag when contamination removal is enabled and succeeds.",
-            contamination_removal_results: "Path to contamination removal results when `run_contamination_removal` is true.",
             clone_phylogeny_completion: "Completion flag when clone phylogeny is enabled and succeeds.",
             clone_phylogeny_results: "Path to clone phylogeny results when `run_clone_phylogeny` is true.",
             de_go_completion: "Completion flag when DE/GO analysis is enabled and succeeds.",
@@ -63,7 +57,7 @@ workflow daedalus_from_cellranger {
             group: "Modules",
         }
         run_contamination_removal: {
-            description: "Run cell contamination removal analysis.",
+            description: "Run cell contamination removal analysis (`analyses/cell-contamination-removal-analysis`).",
             group: "Modules",
         }
         run_cell_types: {
@@ -71,19 +65,19 @@ workflow daedalus_from_cellranger {
             group: "Modules",
         }
         run_clone_phylogeny: {
-            description: "Run clone phylogeny analysis.",
+            description: "Run clone phylogeny analysis (`analyses/clone-phylogeny-analysis`).",
             group: "Modules",
         }
         run_de_go: {
-            description: "Run differential expression and GO analysis.",
+            description: "Run differential expression and GO analysis (`analyses/de-go-analysis`).",
             group: "Modules",
         }
         run_rshiny: {
-            description: "Package the R Shiny exploration app.",
+            description: "Package the R Shiny exploration app (`analyses/rshiny-app`).",
             group: "Modules",
         }
         run_project_updates: {
-            description: "Generate cross-module project reports.",
+            description: "Generate cross-module project reports (`analyses/project-updates`).",
             group: "Modules",
         }
         resource_estimator_cpu: {
@@ -263,19 +257,21 @@ workflow daedalus_from_cellranger {
         Array[Int] estimated_cells = sample_estimated_cells
         Int num_samples = length(cellranger_inputs)
         DownstreamResources downstream_resources = estimate_downstream_resources.resources
-        Int upstream_cpu = estimate_downstream_resources.resources.upstream_cpu
-        Int upstream_memory_gb = estimate_downstream_resources.resources.upstream_memory_gb
-        Int upstream_future_globals_gib = estimate_downstream_resources.resources.upstream_future_globals_gib
-        Int integrative_cpu = estimate_downstream_resources.resources.integrative_cpu
-        Int integrative_memory_gb = estimate_downstream_resources.resources.integrative_memory_gb
-        Int integrative_future_globals_gib = estimate_downstream_resources.resources.integrative_future_globals_gib
         File? upstream_completion = upstream.done_flag
         String? upstream_results = if run_upstream
             then project_root + "/analyses/upstream-analysis/results"
             else None
+        File? integrative_completion = integrative.done_flag
+        String? integrative_results = if run_integrative
+            then project_root + "/analyses/integrative-analysis/results"
+            else None
         File? cluster_completion = cluster.done_flag
         String? cluster_results = if run_cluster
             then project_root + "/analyses/cluster-cell-calling/results"
+            else None
+        File? contamination_removal_completion = contamination_removal.done_flag
+        String? contamination_removal_results = if run_contamination_removal
+            then project_root + "/analyses/cell-contamination-removal-analysis/results"
             else None
         File? cell_types_completion = cell_types.done_flag
         String? cell_types_results = if run_cell_types
@@ -284,14 +280,6 @@ workflow daedalus_from_cellranger {
         File? rshiny_completion = rshiny.done_flag
         String? rshiny_results = if run_rshiny
             then project_root + "/analyses/rshiny-app/results"
-            else None
-        File? integrative_completion = integrative.done_flag
-        String? integrative_results = if run_integrative
-            then project_root + "/analyses/integrative-analysis/results"
-            else None
-        File? contamination_removal_completion = contamination_removal.done_flag
-        String? contamination_removal_results = if run_contamination_removal
-            then project_root + "/analyses/cell-contamination-removal-analysis/results"
             else None
         File? clone_phylogeny_completion = clone_phylogeny.done_flag
         String? clone_phylogeny_results = if run_clone_phylogeny
